@@ -1,9 +1,5 @@
-/**
- * HighlightText — 6/23 실구현
- * 지정된 텍스트 범위에 --color-highlight 배경을 씌우는 인라인 컴포넌트.
- * ReadingPane에서 highlightedParagraphs 인덱스에 해당하는 단락에 적용.
- */
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface HighlightTextProps {
   children: React.ReactNode;
@@ -13,6 +9,11 @@ interface HighlightTextProps {
   color?: string;
 }
 
+/**
+ * HighlightText Component
+ * 지정된 텍스트 범위에 형광펜 배경을 씌웁니다.
+ * framer-motion을 통해 왼쪽에서 오른쪽으로 칠해지는 드로잉 애니메이션 효과를 부여합니다.
+ */
 export const HighlightText: React.FC<HighlightTextProps> = ({
   children,
   intensity = 'normal',
@@ -22,20 +23,24 @@ export const HighlightText: React.FC<HighlightTextProps> = ({
   const opacity = intensity === 'strong' ? 1 : 0.75;
 
   return (
-    <mark
+    <motion.mark
+      initial={{ backgroundSize: '0% 100%' }}
+      animate={{ backgroundSize: '100% 100%' }}
+      transition={{ duration: 0.6, ease: [0.25, 1, 0.5, 1], delay: 0.1 }}
       style={{
-        backgroundColor: bgColor,
-        opacity,
+        background: `linear-gradient(to right, ${bgColor}, ${bgColor}) no-repeat left bottom`,
         color: 'inherit',
-        padding: '0 2px',
+        padding: '1px 3px',
         borderRadius: '3px',
+        opacity,
         boxDecorationBreak: 'clone',
         WebkitBoxDecorationBreak: 'clone',
-        transition: 'background-color 0.3s ease',
+        display: 'inline',
+        transition: 'opacity 0.3s ease',
       }}
     >
       {children}
-    </mark>
+    </motion.mark>
   );
 };
 

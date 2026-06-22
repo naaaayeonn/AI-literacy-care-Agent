@@ -81,10 +81,10 @@ const Paragraph: React.FC<ParagraphProps> = React.memo(({ index, text, isHighlig
         textAlign: 'justify',
         marginBottom: 'var(--space-6)',
         position: 'relative',
-        padding: isHighlighted ? '6px 10px' : undefined,
-        borderLeft: isHighlighted ? '3px solid var(--color-primary)' : undefined,
-        borderRadius: isHighlighted ? '0 var(--radius-sm) var(--radius-sm) 0' : undefined,
-        backgroundColor: isHighlighted ? 'var(--color-primary-tint)' : undefined,
+        padding: '6px 10px',
+        borderLeft: `3px solid ${isHighlighted ? 'var(--color-primary)' : 'transparent'}`,
+        borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+        backgroundColor: isHighlighted ? 'var(--color-primary-tint)' : 'transparent',
         transition: 'background-color 0.4s ease, border-left 0.4s ease',
       }}
     >

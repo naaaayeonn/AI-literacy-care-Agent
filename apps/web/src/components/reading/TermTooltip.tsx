@@ -1,11 +1,5 @@
-/**
- * TermTooltip — 6/23 실구현
- * 특정 용어에 마우스를 올리면 RAG 기반 풀이가 팝업으로 표시되는 인라인 컴포넌트.
- * 실제 정의는 ②번 Content Reducer (RAG) 가 제공. 현재는 props로 받음.
- *
- * TODO 6/30: ②번 RAG 결과를 api.ts를 통해 비동기로 로드
- */
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface TermTooltipProps {
   term: string;
@@ -15,6 +9,11 @@ interface TermTooltipProps {
   children?: React.ReactNode;
 }
 
+/**
+ * TermTooltip Component
+ * 특정 용어에 마우스를 올리면 RAG 기반 풀이가 팝업으로 표시됩니다.
+ * AnimatePresence와 framer-motion을 통해 부드러운 스케일 및 페이드 효과로 나타납니다.
+ */
 export const TermTooltip: React.FC<TermTooltipProps> = ({
   term,
   definition,
@@ -39,12 +38,11 @@ export const TermTooltip: React.FC<TermTooltipProps> = ({
   const tooltipBase: React.CSSProperties = {
     position: 'absolute',
     left: '50%',
-    transform: 'translateX(-50%)',
     width: '240px',
     backgroundColor: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-md)',
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: 'var(--shadow-panel)',
     padding: '10px 12px',
     zIndex: 'var(--z-tooltip)' as unknown as number,
     pointerEvents: 'none',
@@ -73,7 +71,7 @@ export const TermTooltip: React.FC<TermTooltipProps> = ({
           borderBottom: '1.5px dashed var(--color-primary)',
           color: 'var(--color-primary)',
           cursor: 'help',
-          fontWeight: 'var(--weight-medium)' as unknown as number,
+          fontWeight: 600,
         }}
         tabIndex={0}
         aria-describedby={`tooltip-${term}`}
@@ -82,38 +80,60 @@ export const TermTooltip: React.FC<TermTooltipProps> = ({
       </span>
 
       {/* 팝업 툴팁 */}
-      {isOpen && (
-        <span
-          id={`tooltip-${term}`}
-          role="tooltip"
-          style={tooltipStyle}
-        >
-          <span
-            style={{
-              display: 'block',
-              fontWeight: 'var(--weight-semibold)' as unknown as number,
-              color: 'var(--color-text)',
-              marginBottom: '4px',
-            }}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.span
+            id={`tooltip-${term}`}
+            role="tooltip"
+            initial={{ opacity: 0, y: placement === 'top' ? 8 : -8, scale: 0.95, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+            exit={{ opacity: 0, y: placement === 'top' ? 8 : -8, scale: 0.95, x: '-50%' }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            style={tooltipStyle}
           >
-            {term}
-          </span>
-          <span style={{ color: 'var(--color-text-secondary)' }}>
-            {definition}
-          </span>
-          <span
-            style={{
-              display: 'block',
-              marginTop: '6px',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            {/* TODO 6/30: RAG 출처 표시 */}
-            📖 AI 리터러시 케어 용어 사전
-          </span>
-        </span>
-      )}
+            <span
+              style={{
+                display: 'block',
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                marginBottom: '4px',
+              }}
+            >
+              {term}
+            </span>
+            <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '11px', lineHeight: '1.4' }}>
+              {definition}
+            </span>
+            <span
+              style={{
+                display: 'block',
+                marginTop: '8px',
+                fontSize: '9px',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              📖 AI 리터러시 케어 용어 사전
+            </span>
+            {/* 말꼬리 화살표 */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                transform: 'translateX(-50%) rotate(45deg)',
+                width: '8px',
+                height: '8px',
+                backgroundColor: 'var(--color-surface)',
+                borderRight: '1px solid var(--color-border)',
+                borderBottom: placement === 'top' ? '1px solid var(--color-border)' : 'none',
+                borderTop: placement === 'bottom' ? '1px solid var(--color-border)' : 'none',
+                bottom: placement === 'top' ? '-5px' : 'auto',
+                top: placement === 'bottom' ? '-5px' : 'auto',
+              }}
+            />
+          </motion.span>
+        )}
+      </AnimatePresence>
     </span>
   );
 };
