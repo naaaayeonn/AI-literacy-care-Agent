@@ -115,8 +115,10 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({ isVisibl
             )}
 
             {/* 액션 버튼 */}
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <button
+            <div style={{ display: 'flex', gap: 'var(--space-3)', width: '100%' }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   useReadingStore.getState().setProgress(0);
                   useFocusStore.getState().reset();
@@ -141,28 +143,34 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({ isVisibl
                 onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent')}
               >
                 🔄 처음부터 다시 읽기
-              </button>
-              <Link
-                to="/dashboard"
-                style={{
-                  flex: 1,
-                  display: 'block',
-                  textAlign: 'center',
-                  padding: 'var(--space-3)',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-primary)',
-                  color: '#fff',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-sans)',
-                  textDecoration: 'none',
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')}
+              </motion.button>
+              
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{ flex: 1 }}
               >
-                📊 성장 대시보드 보기
-              </Link>
+                <Link
+                  to="/dashboard"
+                  style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    padding: 'var(--space-3)',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--color-primary)',
+                    color: '#fff',
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-sans)',
+                    textDecoration: 'none',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')}
+                >
+                  📊 성장 대시보드 보기
+                </Link>
+              </motion.div>
             </div>
           </div>
         </motion.div>

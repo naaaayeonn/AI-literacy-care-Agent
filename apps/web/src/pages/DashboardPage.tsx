@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import GrowthDashboard from '../components/dashboard/GrowthDashboard';
 import DetailedGrowthReport from '../components/dashboard/DetailedGrowthReport';
 import LevelBar from '../components/gamification/LevelBar';
@@ -61,7 +62,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── 요약 지표 카드 — scoreStore 실시간 연결 ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard emoji="🎯" label="리터러시 점수"   value={String(literacyScore)}    unit="점"  color="var(--color-primary)" />
         <SummaryCard emoji="⚡" label="평균 집중도"     value={String(engagementScore)}  unit="%"   color="var(--color-engagement)" />
         <SummaryCard emoji="✅" label="퀴즈 정답률"     value={String(quizAccuracy)}     unit="%"   color="var(--color-growth)"
@@ -144,29 +145,37 @@ function SummaryCard({
   sub?: string;
 }) {
   return (
-    <Card variant="default" className="p-4">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xl">{emoji}</span>
-      </div>
-      <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
-        {label}
-      </p>
-      <div className="flex items-baseline gap-1">
-        <span
-          className="text-2xl font-bold tabular-nums"
-          style={{ color, fontFamily: 'var(--font-sans)' }}
-        >
-          {value}
-        </span>
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}>
-          {unit}
-        </span>
-      </div>
-      {sub && (
-        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}>
-          {sub}
-        </p>
-      )}
-    </Card>
+    <motion.div
+      whileHover={{ y: -6, scale: 1.02 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+    >
+      <Card variant="default" className="p-4 h-full flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between mb-2">
+            <span className="text-xl">{emoji}</span>
+          </div>
+          <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
+            {label}
+          </p>
+          <div className="flex items-baseline gap-1">
+            <span
+              className="text-2xl font-bold tabular-nums"
+              style={{ color, fontFamily: 'var(--font-sans)' }}
+            >
+              {value}
+            </span>
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}>
+              {unit}
+            </span>
+          </div>
+        </div>
+        {sub && (
+          <p className="text-xs mt-2 pt-2 border-t border-[var(--color-border)]" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}>
+            {sub}
+          </p>
+        )}
+      </Card>
+    </motion.div>
   );
 }

@@ -241,11 +241,28 @@ export const QuizCard: React.FC = () => {
                       border = 'var(--color-primary)';
                     }
 
+                    // ── 7/3 마이크로 애니메이션 설정 ──
+                    let animProps = {};
+                    let transProps = {};
+                    if (revealed) {
+                      if (isCorrectOption) {
+                        // 정답 시 맥박(Pulse) 효과
+                        animProps = { scale: [1, 1.03, 1], boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' };
+                        transProps = { duration: 0.5, ease: 'easeInOut' };
+                      } else if (isSelected) {
+                        // 오답 선택 시 흔들림(Shake) 효과
+                        animProps = { x: [0, -6, 6, -6, 6, 0] };
+                        transProps = { duration: 0.4 };
+                      }
+                    }
+
                     return (
                       <motion.button
                         key={index}
                         whileHover={phase === 'answering' ? { scale: 1.01 } : {}}
                         whileTap={phase === 'answering' ? { scale: 0.99 } : {}}
+                        animate={animProps}
+                        transition={revealed ? transProps : undefined}
                         onClick={() => handleSelect(index)}
                         disabled={phase !== 'answering'}
                         style={{
