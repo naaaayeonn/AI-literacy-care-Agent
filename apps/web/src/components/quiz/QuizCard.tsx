@@ -61,7 +61,7 @@ type QuizPhase = 'answering' | 'correct' | 'incorrect';
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export const QuizCard: React.FC = () => {
   const { isQuizVisible, dismissQuiz, setFocusScore, focusScore, dismissNudge } = useFocusStore();
-  const { addXp } = useScoreStore();
+  const { addXp, recordQuizResult } = useScoreStore();
 
   const [currentQuiz] = useState<QuizQuestion>(
     () => MOCK_QUIZZES[Math.floor(Math.random() * MOCK_QUIZZES.length)]
@@ -94,8 +94,15 @@ export const QuizCard: React.FC = () => {
         addXp(currentQuiz.xpReward);
         setFocusScore(Math.min(100, focusScore + 15));
       }
+      // 6/26: scoreStore에 퀴즈 결과 기록 → comprehensionScore 재계산 + 그래프 갱신
+      recordQuizResult({
+        quizId: currentQuiz.id,
+        correct: isCorrect,
+        xpAwarded: isCorrect ? currentQuiz.xpReward : 0,
+        timestamp: Date.now(),
+      });
     },
-    [phase, currentQuiz, addXp, setFocusScore, focusScore]
+    [phase, currentQuiz, addXp, setFocusScore, focusScore, recordQuizResult]
   );
 
   const handleClose = useCallback(() => {

@@ -3,24 +3,32 @@ import { Link } from 'react-router-dom';
 import ReadingPane from '../components/reading/ReadingPane';
 import FloatingControlPanel from '../components/panel/FloatingControlPanel';
 import NudgeController from '../components/nudge/NudgeController';
+import SessionSummaryCard from '../components/dashboard/SessionSummaryCard';
 import { Card } from '../components/common/Card';
 import { useReadingStore } from '../stores/readingStore';
+import { useScoreEngine } from '../lib/useScoreEngine';
 
 /**
  * ReadingPage — /reading
- * 6/24: NudgeController 연결 — 폐루프 실시간 개입 시스템 완성
- * - NudgeController가 focusScore를 구독해 Soft/Medium/HardNudge + QuizCard를 조건부 렌더
+ * 6/24: NudgeController 연결 — 폐루프 실시간 개입 시스템
+ * 6/26: useScoreEngine 연결 — 실시간 Literacy Score 계산 + 차트 자동 갱신
+ *       SessionSummaryCard — 완독(progress >= 100) 시 결과 카드 표시
  */
 export default function ReadingPage() {
   const progress = useReadingStore((s) => s.progress);
+
+  // 6/26: Score Engine 마운트 (ReadingPage 수명 동안 실행)
+  useScoreEngine();
 
   useEffect(() => {
     document.title = 'AI 리터러시 케어 — 읽기';
   }, []);
 
+  const isFinished = progress >= 100;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      {/* ── 폐루프 개입 시스템 (HardNudge는 sticky top 배너이므로 최상단) ── */}
+      {/* ── 폐루프 개입 시스템 ── */}
       <NudgeController />
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -34,23 +42,28 @@ export default function ReadingPage() {
           {/* 본문 패널 */}
           <ReadingPane />
 
-          {/* 안내 카드 */}
-          <Card variant="flat" className="p-4">
-            <p
-              className="text-xs"
-              style={{
-                color: 'var(--color-text-muted)',
-                fontFamily: 'var(--font-sans)',
-                lineHeight: 'var(--leading-normal)',
-              }}
-            >
-              <span className="font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-                [6/24~25 폐루프 완성]
-              </span>{' '}
-              우측 패널 하단 [집중도 시뮬] 버튼으로 집중도를 낮추면 넛지 → 퀴즈 개입이 자동 실행됩니다.
-              스크롤하면 진행률이 실시간으로 갱신되고, 밑줄 용어에 마우스를 올려 툴팁을 확인하세요.
-            </p>
-          </Card>
+          {/* 완독 시: SessionSummaryCard 슬라이드업 등장 */}
+          <SessionSummaryCard isVisible={isFinished} />
+
+          {/* 완독 전: 안내 카드 */}
+          {!isFinished && (
+            <Card variant="flat" className="p-4">
+              <p
+                className="text-xs"
+                style={{
+                  color: 'var(--color-text-muted)',
+                  fontFamily: 'var(--font-sans)',
+                  lineHeight: 'var(--leading-normal)',
+                }}
+              >
+                <span className="font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  [6/26 Score Engine 작동 중]
+                </span>{' '}
+                스크롤할수록 Literacy Score가 실시간 계산됩니다. 25%/50%/75%/90%/완독 구간마다 대시보드 차트에 새 포인트가 추가됩니다.
+                우측 패널 [집중도 시뮬]로 넛지→퀴즈 흐름을 시연하면, 퀴즈 결과도 즉시 점수에 반영됩니다.
+              </p>
+            </Card>
+          )}
         </div>
 
         {/* ── 우측: 플로팅 제어판 ── */}
@@ -95,7 +108,9 @@ function ReadingProgressBar({ progress }: { progress: number }) {
           className="h-full rounded-full"
           style={{
             width: `${progress}%`,
-            background: `linear-gradient(90deg, var(--color-primary), var(--color-engagement))`,
+            background: progress >= 100
+              ? `linear-gradient(90deg, var(--color-engagement), var(--color-growth))`
+              : `linear-gradient(90deg, var(--color-primary), var(--color-engagement))`,
             transition: 'width 0.5s ease',
           }}
         />

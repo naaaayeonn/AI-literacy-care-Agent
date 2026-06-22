@@ -1,12 +1,14 @@
 /**
- * LiteracyScoreChart — 6/22 Recharts 실구현 (데모 핵심 ★)
+ * LiteracyScoreChart — 6/26 업그레이드 (데모 핵심 ★★)
  *
- * scoreStore의 scoreSeries를 구독해 케어 전/후 Literacy Score 비교 라인 그래프를 렌더링.
- * 심사위원에게 "이게 ChatGPT와 다른 이유"를 눈으로 보여주는 핵심 차트.
- *
- * TODO 6/26: ①번 Score Engine 실제 데이터 연결
+ * [변경 사항]
+ * - 세션 진행 중 실시간으로 포인트가 추가되는 "라이브 그래프"로 전환
+ * - 마지막 포인트(현재 세션)를 특수 Dot으로 강조 (맥박 애니메이션)
+ * - scoreStore.literacyScore가 변화할 때 차트 헤더 수치도 실시간 갱신
+ * - 이전 히스토리(일별) + 현재 세션 포인트(진행 구간) 모두 표시
+ * - 케어 전/후 격차(Gap) ReferenceLine 하이라이트
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -17,87 +19,196 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  Dot,
 } from 'recharts';
 import { useScoreStore } from '../../stores/scoreStore';
+import type { ScoreDataPoint } from '../../types/shared';
 
 // ── 커스텀 툴팁 ──────────────────────────────────────────────────────
-interface TooltipProps {
+interface TooltipPayload {
+  color: string;
+  name: string;
+  value: number;
+}
+interface CustomTooltipProps {
   active?: boolean;
-  payload?: Array<{ color: string; name: string; value: number }>;
+  payload?: TooltipPayload[];
   label?: string;
 }
 
-const CustomTooltip: React.FC<TooltipProps> = ({ active, payload, label }) => {
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
+  const gap = payload.length === 2 ? payload[1].value - payload[0].value : 0;
   return (
-    <div
-      style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
-        padding: '10px 14px',
-        boxShadow: 'var(--shadow-md)',
-        fontFamily: 'var(--font-sans)',
-        fontSize: 'var(--text-sm)',
-      }}
-    >
-      <p style={{ fontWeight: 'var(--weight-semibold)' as unknown as number, color: 'var(--color-text)', marginBottom: '6px' }}>
-        {label}
-      </p>
+    <div style={{
+      backgroundColor: 'var(--color-surface)',
+      border: '1px solid var(--color-border)',
+      borderRadius: 'var(--radius-md)',
+      padding: '10px 14px',
+      boxShadow: 'var(--shadow-md)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: 'var(--text-sm)',
+      minWidth: '140px',
+    }}>
+      <p style={{ fontWeight: 600, color: 'var(--color-text)', marginBottom: '6px' }}>{label}</p>
       {payload.map((item) => (
         <p key={item.name} style={{ color: item.color, margin: '2px 0' }}>
           {item.name}: <strong>{item.value}점</strong>
         </p>
       ))}
-      {payload.length === 2 && (
-        <p style={{ color: 'var(--color-growth)', marginTop: '6px', fontSize: 'var(--text-xs)' }}>
-          +{payload[1].value - payload[0].value}점 향상 ↑
-        </p>
+      {gap > 0 && (
+        <div style={{
+          marginTop: '8px',
+          paddingTop: '6px',
+          borderTop: '1px solid var(--color-border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+        }}>
+          <span style={{ fontSize: '14px' }}>📈</span>
+          <span style={{ color: 'var(--color-growth)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+            +{gap}점 향상
+          </span>
+        </div>
       )}
     </div>
   );
 };
 
+// ── 라이브 포인트 강조 Dot ────────────────────────────────────────────
+interface LiveDotProps {
+  cx?: number;
+  cy?: number;
+  index?: number;
+  dataLength: number;
+}
+
+const LiveDot: React.FC<LiveDotProps> = ({ cx = 0, cy = 0, index = 0, dataLength }) => {
+  const isLast = index === dataLength - 1;
+  if (!isLast) {
+    return <Dot cx={cx} cy={cy} r={5} fill="var(--color-comprehension)" stroke="var(--color-surface)" strokeWidth={2} />;
+  }
+  // 마지막 포인트: 이중 원 강조 (라이브 표시)
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={10} fill="var(--color-comprehension)" fillOpacity={0.2} />
+      <circle cx={cx} cy={cy} r={6} fill="var(--color-comprehension)" stroke="var(--color-surface)" strokeWidth={2} />
+    </g>
+  );
+};
+
 // ── 메인 차트 ────────────────────────────────────────────────────────
-export const LiteracyScoreChart: React.FC = () => {
-  const { scoreSeries } = useScoreStore();
+interface LiteracyScoreChartProps {
+  /** 높이 (기본 260px) */
+  height?: number;
+  /** 범례 숨김 여부 */
+  hideLegend?: boolean;
+}
+
+export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
+  height = 260,
+  hideLegend = false,
+}) => {
+  const { scoreSeries, literacyScore } = useScoreStore();
+
+  // 최대 향상폭 계산 (배지/헤더 표시용)
+  const maxGap = useMemo(() => {
+    if (scoreSeries.length < 2) return 0;
+    return Math.max(...scoreSeries.map((d: ScoreDataPoint) => d.after - d.before));
+  }, [scoreSeries]);
+
+  const currentScore = scoreSeries.length > 0
+    ? scoreSeries[scoreSeries.length - 1].after
+    : literacyScore;
 
   return (
     <div>
-      <div style={{ marginBottom: '12px' }}>
-        <p
-          style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--color-text-muted)',
-            fontFamily: 'var(--font-sans)',
-            marginTop: '4px',
-          }}
-        >
-          AI 케어 에이전트 개입 전/후 Literacy Score 비교
+      {/* 실시간 점수 헤더 */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '12px',
+      }}>
+        <p style={{
+          fontSize: 'var(--text-xs)',
+          color: 'var(--color-text-muted)',
+          fontFamily: 'var(--font-sans)',
+        }}>
+          AI 케어 에이전트 개입 전/후 Literacy Score
         </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* 현재 점수 라이브 뱃지 */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 8px',
+            backgroundColor: 'var(--color-primary-tint)',
+            borderRadius: 'var(--radius-full)',
+          }}>
+            <span style={{
+              width: '6px', height: '6px', borderRadius: '50%',
+              backgroundColor: 'var(--color-comprehension)',
+              display: 'inline-block',
+            }} />
+            <span style={{
+              fontSize: 'var(--text-xs)',
+              fontWeight: 700,
+              color: 'var(--color-comprehension)',
+              fontFamily: 'var(--font-sans)',
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {currentScore}점
+            </span>
+          </div>
+
+          {/* 향상폭 */}
+          {maxGap > 0 && (
+            <span style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-growth)',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+            }}>
+              ↑ +{maxGap}점
+            </span>
+          )}
+        </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={scoreSeries} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={scoreSeries} margin={{ top: 8, right: 20, left: -8, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 12, fontFamily: 'var(--font-sans)', fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 11, fontFamily: 'var(--font-sans)', fill: 'var(--color-text-secondary)' }}
             axisLine={{ stroke: 'var(--color-border)' }}
             tickLine={false}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 12, fontFamily: 'var(--font-sans)', fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 11, fontFamily: 'var(--font-sans)', fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
+
           <Tooltip content={<CustomTooltip />} />
-          <Legend
-            wrapperStyle={{ fontFamily: 'var(--font-sans)', fontSize: '12px', paddingTop: '12px' }}
+          {!hideLegend && (
+            <Legend wrapperStyle={{ fontFamily: 'var(--font-sans)', fontSize: '12px', paddingTop: '12px' }} />
+          )}
+
+          {/* 평균선 */}
+          <ReferenceLine
+            y={50}
+            stroke="var(--color-nudge-soft)"
+            strokeDasharray="4 4"
+            label={{ value: '평균', fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'var(--font-sans)' }}
           />
 
-          {/* 케어 없이 예상 점수 (점선) */}
+          {/* 케어 미적용 (점선) */}
           <Line
             type="monotone"
             dataKey="before"
@@ -105,27 +216,31 @@ export const LiteracyScoreChart: React.FC = () => {
             stroke="var(--color-text-muted)"
             strokeWidth={2}
             strokeDasharray="6 3"
-            dot={{ fill: 'var(--color-text-muted)', r: 4 }}
+            dot={{ fill: 'var(--color-text-muted)', r: 4, stroke: 'var(--color-surface)', strokeWidth: 2 }}
             activeDot={{ r: 6 }}
+            isAnimationActive={true}
+            animationDuration={600}
           />
 
-          {/* 케어 적용 후 실제 점수 (실선, 강조) */}
+          {/* 케어 적용 (실선 — 라이브 Dot 포함) */}
           <Line
             type="monotone"
             dataKey="after"
             name="케어 적용"
             stroke="var(--color-comprehension)"
             strokeWidth={3}
-            dot={{ fill: 'var(--color-comprehension)', r: 5 }}
-            activeDot={{ r: 7, stroke: 'var(--color-comprehension)', strokeWidth: 2 }}
-          />
-
-          {/* 기준선 — 평균 리터러시 점수 50점 */}
-          <ReferenceLine
-            y={50}
-            stroke="var(--color-nudge-soft)"
-            strokeDasharray="4 4"
-            label={{ value: '평균', fill: 'var(--color-text-muted)', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+            dot={(props) => (
+              <LiveDot
+                cx={props.cx}
+                cy={props.cy}
+                index={props.index}
+                dataLength={scoreSeries.length}
+              />
+            )}
+            activeDot={{ r: 8, stroke: 'var(--color-comprehension)', strokeWidth: 2, fill: 'var(--color-surface)' }}
+            isAnimationActive={true}
+            animationDuration={800}
+            animationEasing="ease-out"
           />
         </LineChart>
       </ResponsiveContainer>
