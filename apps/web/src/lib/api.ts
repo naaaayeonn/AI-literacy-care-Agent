@@ -160,7 +160,7 @@ export const api = {
         content: sampleArticle.content,
         difficulty: 0.6,
       },
-      wsEndpoint: `${BASE_URL.replace(/^http/, 'ws')}/ws/session/mock-session-${Date.now()}`,
+      wsEndpoint: `${BASE_URL.replace(/^http/, 'ws')}/ws/reading/mock-session-${Date.now()}`,
     };
   },
 
