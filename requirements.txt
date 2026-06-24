@@ -1,0 +1,18 @@
+# AI 리터러시 케어 에이전트 - 백엔드 의존성
+# 패키지 매니저 확정 전 임시 기준(ARCHITECTURE 표 + DELIVERY_PLAN §31).
+# 팀이 poetry/uv 채택 시 이 파일을 대체한다.
+
+# --- 테스트 (오늘부터 사용) ---
+pytest>=8.0
+
+# --- 서버 (6/22 이후 활성화) ---
+# fastapi>=0.110
+# uvicorn[standard]>=0.29
+# websockets>=12.0
+
+# --- 오케스트레이션 (LangGraph 전환 시) ---
+# langgraph>=0.2
+# langchain>=0.2
+
+# --- 코드 스타일 (선택) ---
+# ruff>=0.4
