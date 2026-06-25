@@ -1,0 +1,5 @@
+{
+    "raw_text": "머신러닝은 데이터를 통해 학습한다.",
+    "expected_quiz": "머신러닝은 무엇을 통해 학습하는가?",
+    "expected_answer": "데이터"
+}
