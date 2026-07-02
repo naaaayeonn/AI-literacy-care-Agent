@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="card">
+      <div class="header">
+        <span class="logo">📖</span>
+        <span class="title">AI 리터러시 케어</span>
+      </div>
+
+      <label class="toggle">
+        <input type="checkbox" id="enabled" />
+        <span class="slider"></span>
+        <span class="toggle-label" id="toggleLabel">꺼짐</span>
+      </label>
+
+      <p class="hint" id="hint">
+        켜두면 크롬에서 글을 읽는 동안 집중도를 측정하고,
+        집중이 떨어지면 부드럽게 알려줘요.
+      </p>
+
+      <div class="status" id="status"></div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

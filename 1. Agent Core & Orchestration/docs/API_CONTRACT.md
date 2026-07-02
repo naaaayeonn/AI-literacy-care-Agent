@@ -173,8 +173,97 @@
 - 서브 에이전트 실패는 **HTTP 에러로 새지 않는다** — orchestrator가 fallback을 적용하고 `trace.status="fallback"` + `errors[]`로 기록한다.
 - stub ↔ real 모듈 전환은 환경변수로 제어한다. 자세한 내용은 `docs/INTEGRATION_CHECKLIST.md`.
 
+## 9. 확장(크롬) 인입 계약 — 외부 입력원 어댑터
+
+> 확장은 **새 입력원**이다. 웹앱은 사전 업로드된 `articleId`로 시작하지만, 확장은
+> **페이지에서 추출한 본문 `content[]`**를 넘긴다. 이 절은 확장의 **camelCase + REST**
+> 경계를 내부 **snake_case state**로 잇는 어댑터 계약이다.
+> 전송방식은 **REST(event-driven)** — `EXTENSION_INTEGRATION_FIXES.md`의 **ADR-001** 확정.
+> 정본: `EXTENSION_DESIGN.md`(§9 pdf.js, §12 ADR) · `EXTENSION_INTEGRATION_FIXES.md`.
+>
+> **상태: 계약 확정 / 구현 보류.** 아래 `/api/session/*` alias·필드 매핑은 통합 재개 시 붙인다
+> (내부 `/api/reading-sessions/*`는 이미 구현·테스트 완료).
+
+### 9-1. 세션 시작 — `POST /api/session/start` (확장 alias)
+
+**요청(확장)**
+```json
+{
+  "userId": "demo_user",
+  "articleId": "https://example.com/article",
+  "source": { "url": "https://example.com/article", "title": "글 제목", "type": "web" },
+  "content": ["문단1", "문단2", "..."]
+}
+```
+- `source.type` ∈ `web | pdf`. 본문 출처: 웹=Readability, **PDF=pdf.js `getTextContent()`**(§9-4).
+
+**필드 매핑 (확장 → 내부 state)**
+
+| 확장(요청) | 내부(state) | 변환 |
+|---|---|---|
+| `userId` | `user_id` | 그대로 |
+| `articleId` | `document_id` | 그대로(확장은 URL을 문서 식별자로 사용) |
+| `content[]` (문단 배열) | `raw_text` (str) | `"\n\n".join(content)` |
+| `source{url,title,type}` | (메타·선택) | 로그/세션 메타로 보관 |
+| `profile`(있으면) | `profile` | 그대로 |
+
+- `userId`는 **설치별 익명 UUID**(`chrome.storage`, 로그인 없음) — ADR-002. 기본값 `anonymous` 허용.
+
+**응답**
+```json
+{ "sessionId": "s1", "chunks": [], "simplifiedText": "...", "terms": [], "difficultyScore": 72.0 }
+```
+- `sessionId` = 내부 `session_id`. 나머지는 내부 §6 세션 시작 응답과 동일(확장은 선택 사용).
+- ⚠️ **`wsEndpoint`는 ADR-001로 미사용** — 반환하지 않거나 `null`. 이벤트는 REST(§9-2)로 보낸다.
+
+### 9-2. 이벤트 전송 — `POST /api/session/{id}/events` (확장 alias, REST)
+
+ADR-001: WS 대신 **이벤트 구동 배치 flush**. 확장은 이벤트 큐를 1~2초 창(또는 blur 등
+중요 이벤트)마다 아래 형태로 보내고, **응답에 실린 개입을 즉시 렌더**한다(고정주기 폴링 아님).
+
+**요청(확장)** — 내부 §7 스키마로 정규화해 전송
+```json
+{ "session_id": "s1",
+  "events": [ { "type": "scroll", "timestamp_ms": 12000, "position": 0.42, "duration_ms": 180 } ] }
+```
+
+**이벤트 필드 매핑 (확장 원형 → 내부 event)**
+
+| 확장 원형 | 내부 event | 변환 |
+|---|---|---|
+| `type` | `type` | `scroll \| pause \| blur \| focus \| click` |
+| `timestamp`(epoch ms) | `timestamp_ms` | **세션 시작 기준 ms**로 환산(`now - sessionStart`) |
+| `payload.progress`(0~100) | `position`(0.0~1.0) | `progress / 100` |
+| `payload.dwellMs` | `duration_ms` | 그대로(int, 직전 스크롤 간격 → "찍기 감점"에 사용) |
+
+**응답** = 개입 명령(프론트 계약, `to_intervention_command` 출력)
+```json
+{ "type": "nudge",
+  "payload": { "focusScore": 63.0, "progress": 42, "nudgeLevel": "soft", "nudgeMessage": "잠시 멈춰 핵심 문장을 다시 볼까요?" } }
+```
+- `type` ∈ `nudge | highlight | quiz | score_update`. 개입 없음이면 `score_update`(점수만 갱신).
+- `session_end`는 클라이언트가 세션 종료 시 자체 처리(서버가 push하지 않음).
+- **idle 넛지**: 확장이 N초 무동작 감지 시 `pause` 이벤트를 보내면 서버가 넛지를 응답으로 반환.
+
+### 9-3. 결과 조회 — `GET /api/session/{id}/result` (확장 alias)
+
+내부 `GET /api/reading-sessions/{id}/result`와 동일 응답(내부 §6 최종 결과, camelCase는 프론트
+어댑터 `to_session_result` 사용). 확장은 세션 종료 시 호출해 대시보드에 성장 그래프를 기록.
+
+### 9-4. 본문 소스 (웹 / PDF 공통 `content[]`)
+
+| 출처 | 추출 | 결과 |
+|---|---|---|
+| 웹페이지 | Readability(또는 `<p>` 휴리스틱) | `content[]` |
+| **PDF** | **pdf.js `getTextContent()`** → 줄 병합·하이픈·머리말/꼬리말 정리 | `content[]` |
+
+두 경로 모두 **동일한 `content[]`** 로 정규화 → 백엔드는 출처를 구분하지 않는다(2번 담당, §9-1).
+
+---
+
 ## 변경 이력
 - v0 (6/20): ARCHITECTURE.md §4 계약을 문서로 추출. 필드명은 state.py와 1:1.
 - v1 (6/21): 필드 표는 `docs/SHARED_STATE.md`로 분리·확정. intervention.type ∈ `none|highlight|nudge|quiz`.
 - v2 (7/2): 최종 응답에 `warnings`(Self-Correction)·`trace`·`errors` 반영, 에러/모듈 전환 절 추가.
 - v3 (7/3): Profile 시계열 확장(안) 반영 — `score_history` 입력, `previous_scores`/`recommended_difficulty` 출력(추가 필드). 상세는 `docs/TIMESERIES_DESIGN.md`. **제안 단계**(미동결).
+- v4 (7/3): §9 확장(크롬) 인입 계약 추가 — `content[]` 세션 시작, camelCase↔snake_case·이벤트 필드 매핑, REST 전송(ADR-001), 웹/PDF 공통 `content[]`. **계약 확정·구현 보류**. 정본: `EXTENSION_INTEGRATION_FIXES.md`/`EXTENSION_DESIGN.md`.

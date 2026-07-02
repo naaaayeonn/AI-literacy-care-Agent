@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "AI 리터러시 케어",
+  "version": "0.1.0",
+  "description": "크롬에서 읽는 글의 읽기 행동을 측정하고, 집중이 떨어지면 부드럽게 개입합니다.",
+  "permissions": ["storage", "activeTab", "scripting", "declarativeNetRequest"],
+  "host_permissions": ["http://localhost:8000/*", "<all_urls>"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AI 리터러시 케어"
+  },
+  "background": {
+    "service_worker": "background/service_worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": [
+        "config.js",
+        "shared/tracker.js",
+        "shared/overlay.js",
+        "shared/session_client.js",
+        "content/content_script.js"
+      ],
+      "css": ["content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["pdf/viewer.html", "vendor/pdfjs/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

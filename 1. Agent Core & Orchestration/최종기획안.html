@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>2026 AI·SW중심대학 디지털 경진대회 — 최종 기획 보고서</title>
+<style>
+  :root{
+    --navy:#16235a; --navy2:#23357e; --ink:#1f2430; --gray:#5b6473;
+    --line:#d8dde6; --soft:#f4f6fb; --soft2:#eef1f8;
+    --reduce:#1f9d6b; --care:#e08a1e; --reward:#d94a4a;
+    --profile:#2f6fd1; --orch:#7a4fd0; --qa:#5b6473;
+    --accent:#0fb3a6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Malgun Gothic','Noto Sans KR',sans-serif;
+    color:var(--ink); font-size:10.5pt; line-height:1.65;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  @page{ size:A4; margin:16mm 15mm 16mm 15mm; }
+  .page{ page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  h1,h2,h3,h4{ color:var(--navy); margin:0; line-height:1.3; }
+  p{margin:.4em 0;}
+  .muted{color:var(--gray);}
+  .small{font-size:9pt;}
+  .tiny{font-size:8.2pt;}
+  .center{text-align:center;}
+  strong{color:var(--navy2);}
+  code{background:var(--soft2);padding:1px 5px;border-radius:4px;font-size:9pt;color:#324;}
+
+  /* ===== Cover ===== */
+  .cover{ height:255mm; display:flex; flex-direction:column; }
+  .cover .topbar{ height:8px; background:linear-gradient(90deg,var(--navy),var(--accent)); }
+  .cover .body{ flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 6mm; }
+  .badge{ display:inline-block; background:var(--soft2); color:var(--navy2);
+    font-size:9.5pt; font-weight:700; padding:5px 14px; border-radius:20px; letter-spacing:.3px; }
+  .cover h1{ font-size:30pt; margin:18px 0 6px; letter-spacing:-.5px; }
+  .cover .sub{ font-size:13pt; color:var(--gray); font-weight:600; }
+  .cover .tag{ margin-top:8px; font-size:11pt; color:var(--accent); font-weight:700;}
+  .cover .rule{ height:3px; width:70px; background:var(--accent); margin:22px 0; }
+  .meta-table{ margin-top:30px; border-collapse:collapse; width:100%; font-size:10pt;}
+  .meta-table td{ border:1px solid var(--line); padding:8px 12px;}
+  .meta-table td.k{ background:var(--soft); font-weight:700; color:var(--navy2); width:24%;}
+  .cover .foot{ font-size:9pt; color:var(--gray); border-top:1px solid var(--line); padding-top:10px;}
+
+  /* ===== Section ===== */
+  .sec-head{ display:flex; align-items:center; gap:12px; margin:0 0 12px;
+    border-bottom:2.5px solid var(--navy); padding-bottom:8px; }
+  .sec-num{ background:var(--navy); color:#fff; font-weight:800; font-size:13pt;
+    width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .sec-head h2{ font-size:16pt; }
+  .sec-head .en{ font-size:9pt; color:var(--gray); font-weight:600; margin-top:2px;}
+
+  h3{ font-size:12pt; margin:18px 0 6px; padding-left:10px; border-left:4px solid var(--accent);}
+  h4{ font-size:10.5pt; margin:12px 0 4px; color:var(--navy2);}
+
+  /* ===== Boxes ===== */
+  .callout{ background:var(--soft); border:1px solid var(--line); border-left:5px solid var(--accent);
+    border-radius:6px; padding:12px 16px; margin:12px 0;}
+  .callout.warn{ border-left-color:var(--reward); background:#fdf3f3;}
+  .callout.key{ border-left-color:var(--orch); background:#f6f2fd;}
+  .lead{ font-size:11.5pt; font-weight:700; color:var(--navy); line-height:1.5;}
+
+  table.tbl{ width:100%; border-collapse:collapse; margin:10px 0; font-size:9.5pt;}
+  table.tbl th{ background:var(--navy); color:#fff; padding:8px 10px; text-align:left; font-weight:700;}
+  table.tbl td{ border:1px solid var(--line); padding:7px 10px; vertical-align:top;}
+  table.tbl tr:nth-child(even) td{ background:var(--soft);}
+  .yes{color:var(--reduce);font-weight:800;} .no{color:var(--reward);font-weight:800;}
+
+  ul,ol{ margin:.4em 0; padding-left:20px;}
+  li{ margin:3px 0;}
+
+  /* ===== Diagram ===== */
+  .diagram{ border:1px solid var(--line); border-radius:10px; padding:16px; background:#fbfcfe; margin:12px 0;}
+  .node{ border-radius:8px; padding:9px 10px; color:#fff; text-align:center; }
+  .node .t{ font-weight:800; font-size:10pt;}
+  .node .d{ font-size:7.8pt; opacity:.92; line-height:1.35; margin-top:2px;}
+  .arrow{ text-align:center; color:var(--gray); font-size:13pt; line-height:1; margin:4px 0;}
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .n-orch{background:var(--orch);} .n-reduce{background:var(--reduce);}
+  .n-care{background:var(--care);} .n-reward{background:var(--reward);}
+  .n-profile{background:var(--profile);} .n-qa{background:var(--qa);}
+  .n-user{background:#33384a;} .n-infra{background:#46506b;}
+
+  /* agent cards */
+  .acard{ border:1px solid var(--line); border-radius:9px; margin:12px 0; overflow:hidden; page-break-inside:avoid;}
+  .acard .hd{ color:#fff; padding:9px 14px; display:flex; align-items:center; gap:10px;}
+  .acard .hd .no{ background:rgba(255,255,255,.25); border-radius:6px; padding:1px 9px; font-weight:800;}
+  .acard .hd .nm{ font-weight:800; font-size:11.5pt;}
+  .acard .hd .en{ font-size:8.5pt; opacity:.9; margin-left:auto;}
+  .acard .bd{ padding:10px 14px;}
+
+  /* score formula */
+  .formula{ background:var(--navy); color:#eaf0ff; border-radius:10px; padding:16px 18px; margin:12px 0;
+    font-size:10.5pt; line-height:1.9;}
+  .formula b{color:#fff;} .formula .hl{color:var(--accent); font-weight:800;}
+
+  .pill{ display:inline-block; background:var(--soft2); color:var(--navy2); border:1px solid var(--line);
+    border-radius:14px; padding:2px 10px; font-size:8.5pt; font-weight:700; margin:2px 3px 2px 0;}
+
+  /* roadmap */
+  .road{ border-collapse:collapse; width:100%; font-size:9pt;}
+  .road th,.road td{ border:1px solid var(--line); padding:6px 8px; text-align:center;}
+  .road th{ background:var(--navy); color:#fff;}
+  .road .ph{ background:var(--soft); font-weight:700; text-align:left; color:var(--navy2);}
+  .bar{ height:14px; border-radius:7px; background:var(--accent);}
+  .must{background:var(--reward);color:#fff;font-weight:700;border-radius:4px;padding:1px 6px;font-size:8pt;}
+  .opt{background:var(--profile);color:#fff;font-weight:700;border-radius:4px;padding:1px 6px;font-size:8pt;}
+  .later{background:var(--gray);color:#fff;font-weight:700;border-radius:4px;padding:1px 6px;font-size:8pt;}
+
+  /* Q&A */
+  .qa{ border:1px solid var(--line); border-radius:8px; padding:11px 14px; margin:10px 0; page-break-inside:avoid;}
+  .qa .q{ font-weight:800; color:var(--reward); }
+  .qa .a{ margin-top:5px; }
+  .qa .a::before{ content:"▸ "; color:var(--accent); font-weight:800;}
+
+  .toc{ font-size:10.5pt;}
+  .toc li{ margin:6px 0; }
+  .toc .n{ display:inline-block; width:26px; color:var(--accent); font-weight:800;}
+
+  .kpi{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:12px 0;}
+  .kpi .b{ border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; background:var(--soft);}
+  .kpi .v{ font-size:17pt; font-weight:800; color:var(--navy);}
+  .kpi .l{ font-size:8pt; color:var(--gray);}
+
+  .footer-note{ margin-top:8px; font-size:8pt; color:var(--gray); border-top:1px solid var(--line); padding-top:6px;}
+
+  /* calendar */
+  .cal{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin:10px 0;}
+  .cal .dh{ text-align:center; font-size:8pt; font-weight:700; color:var(--gray); padding-bottom:2px;}
+  .cal .d{ border:1px solid var(--line); border-radius:6px; padding:5px 5px 6px; min-height:50px; font-size:7.6pt; line-height:1.28; background:#fff;}
+  .cal .d .dt{ font-weight:800; font-size:8.6pt; color:var(--navy);}
+  .cal .d.off{ background:#f0f1f4; color:#9aa3b5;}
+  .cal .d.off .dt{ color:#9aa3b5;}
+  .cal .hi{ background:#e3f6f3; border-color:#9fe0d8;}
+  .cal .md{ background:#f4f6fb;}
+  .cal .lo{ background:#fdf3e3; border-color:#f0cf96;}
+  .cal .ms{ box-shadow:inset 0 0 0 2px var(--navy);}
+  .cal .sb{ background:#fdebea; box-shadow:inset 0 0 0 2px var(--reward);}
+  .cal .lab{ display:block; margin-top:2px; color:var(--ink);}
+  .cal .mk{ display:inline-block; font-size:6.8pt; font-weight:800; padding:0 3px; border-radius:3px; background:var(--navy); color:#fff; margin-top:2px;}
+  .cal .mk.r{ background:var(--reward);}
+
+  /* daily by role */
+  table.daily{ font-size:8pt; width:100%; border-collapse:collapse; margin:6px 0 4px;}
+  table.daily th{ background:var(--navy); color:#fff; padding:4px 7px; text-align:left;}
+  table.daily td{ border:1px solid var(--line); padding:3px 7px; vertical-align:top; line-height:1.3;}
+  table.daily .dc{ width:21%; white-space:nowrap; font-weight:700; color:var(--navy2); background:var(--soft);}
+  table.daily tr.min td{ background:#fdf3e3;}
+  table.daily tr.min .dc{ background:#f7e6c8;}
+  table.daily tr.gate .dc{ background:var(--navy); color:#fff;}
+  table.daily tr.gate td{ font-weight:700;}
+  table.daily tr.sub .dc{ background:var(--reward); color:#fff;}
+  .rolehd{ display:flex; align-items:center; gap:8px; margin:14px 0 0;}
+  .rolehd .dot{ width:14px; height:14px; border-radius:4px; flex:0 0 auto;}
+  .rolehd .rt{ font-size:11.5pt; font-weight:800; color:var(--navy);}
+  .rolehd .rs{ font-size:8.5pt; color:var(--gray); margin-left:auto;}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="page cover">
+  <div class="topbar"></div>
+  <div class="body">
+    <div><span class="badge">2026 AI·SW중심대학 디지털 경진대회 · SW부문</span></div>
+    <h1>AI 리터러시 케어 에이전트<br>최종 기획 보고서</h1>
+    <div class="sub">읽기 행동을 측정하고 문해력 성장을 관리하는<br>폐루프(Closed-Loop) 멀티 에이전트 시스템</div>
+    <div class="tag">— "AI가 글을 대신 읽어주는 서비스가 아니라, 사용자의 문해력 성장을 관리하는 서비스" —</div>
+    <div class="rule"></div>
+    <table class="meta-table">
+      <tr><td class="k">팀명</td><td>AllDayHappyDay</td><td class="k">참가 인원</td><td>5명</td></tr>
+      <tr><td class="k">지원 부문</td><td>SW부문</td><td class="k">소속</td><td>숙명여자대학교 SW중심대학사업단</td></tr>
+      <tr><td class="k">문서 버전</td><td>v1.0 (최종 확정안)</td><td class="k">작성일</td><td>2026-06-18</td></tr>
+      <tr><td class="k">문서 목적</td><td colspan="3">팀 내부 공유용 최종 기획 — 차별화 전략·핵심 지표·아키텍처·역할분담·일정 확정</td></tr>
+    </table>
+    <p class="small muted" style="margin-top:18px;">본 문서는 기존 아이디어 기획안에 ① 심사 방어 전략(임상적 측정) ② 외부 피드백(GPT 차별화·정량 지표·QA·시계열)을 반영하여 <strong>최종 확정한 통합 기획서</strong>입니다.</p>
+    <div class="cover foot" style="margin-top:auto;">AllDayHappyDay · 2026 Digital Contest · Internal Planning Report</div>
+  </div>
+</div>
+
+<!-- ============ TOC + SUMMARY ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">★</div><div><h2>Executive Summary &amp; 목차</h2><div class="en">한 장 요약 / Table of Contents</div></div></div>
+
+  <div class="callout key">
+    <div class="lead">우리가 만드는 것은 "요약기"가 아니라 "문해력 성장 관리 시스템"이다.</div>
+    <p style="margin-bottom:0;">사용자의 <strong>읽기 행동(과정)</strong>과 <strong>이해도(결과)</strong>를 측정해 <strong>Literacy Score</strong>라는 단일 지표로 정량화하고,
+    실시간 개입(넛지·퀴즈·재구성)으로 성장을 유도하며, 누적 시계열로 <strong>성장 곡선</strong>을 추적하는
+    <strong>폐루프(측정 → 개입 → 추적)</strong> 멀티 에이전트 시스템이다. 이것이 ChatGPT 단순 요약과의 결정적 차이다.</p>
+  </div>
+
+  <div class="kpi">
+    <div class="b"><div class="v">−24점</div><div class="l">한국 언어능력<br>(PIAAC 2012→2023)</div></div>
+    <div class="b"><div class="v">6+1</div><div class="l">에이전트<br>(전문 5 + 오케스트레이터 + QA)</div></div>
+    <div class="b"><div class="v">1지표</div><div class="l">Literacy Score<br>전후 비교 그래프</div></div>
+    <div class="b"><div class="v">2층</div><div class="l">검증 체계<br>(런타임 품질 + 제품 QA)</div></div>
+  </div>
+
+  <h3>목차</h3>
+  <ul class="toc" style="list-style:none;padding-left:0;">
+    <li><span class="n">1</span> 프로젝트 개요 &amp; 문제 정의</li>
+    <li><span class="n">2</span> 핵심 차별화 전략 — GPT와 무엇이 다른가</li>
+    <li><span class="n">3</span> 서비스 포지셔닝 &amp; 타깃 사용자</li>
+    <li><span class="n">4</span> 핵심 지표: Literacy Score 설계 <span class="muted small">(이 보고서의 심장)</span></li>
+    <li><span class="n">5</span> 시스템 아키텍처 — 계층형 멀티 에이전트</li>
+    <li><span class="n">6</span> 에이전트 상세 명세 (6종)</li>
+    <li><span class="n">7</span> RAG 적용 범위 &amp; 기술 스택 / LLM 라우팅</li>
+    <li><span class="n">8</span> 검증·평가 체계 (Harness + QA 2층 구조)</li>
+    <li><span class="n">9</span> 최종 산출물 &amp; UI</li>
+    <li><span class="n">10</span> 개발 로드맵 · 실행 일정(일자별, 개인 일정 반영)</li>
+    <li><span class="n">11</span> 팀 역할 분담</li>
+    <li><span class="n">12</span> 심사 예상 질문 &amp; 방어 스크립트</li>
+    <li><span class="n">13</span> 리스크 &amp; 대응 / 부록</li>
+  </ul>
+
+  <div class="callout">
+    <h4 style="margin-top:0;">이번 최종안에서 "확정"한 4가지</h4>
+    <ol style="margin-bottom:0;">
+      <li><strong>차별화 프레임 고정:</strong> "GPT는 텍스트를 처리하고, 우리는 사람을 관리한다" — 폐루프 구조로 설명.</li>
+      <li><strong>Literacy Score 단일 지표 정의:</strong> 이해도 × 집중도 × 난이도 보정 → 전후 비교 그래프가 데모의 핵심 화면.</li>
+      <li><strong>QA를 별도 층으로 분리:</strong> 런타임 결과 품질(기존)과 제품 동작 안정성(신규 QA/Eval Agent)을 구분.</li>
+      <li><strong>RAG는 용어풀이 한 곳에만:</strong> 환각 방지 → Faithfulness로 "지어내지 않음"을 정량 증명.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============ 1. 개요 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">1</div><div><h2>프로젝트 개요 &amp; 문제 정의</h2><div class="en">Overview &amp; Problem Statement</div></div></div>
+
+  <h3>1.1 한 줄 정의</h3>
+  <div class="callout"><p class="lead" style="margin:0;">사용자가 읽고 있는 텍스트를 AI가 분석·재구성하고, 읽기 행동 데이터를 실시간 분석해
+  맞춤 개입(강조·쉬운 설명·퀴즈·요약)을 수행하여 <strong>끝까지 읽고 이해하도록</strong> 돕는 개인 맞춤형 AI 리터러시 코치.</p></div>
+
+  <h3>1.2 문제 정의 — 왜 지금 필요한가</h3>
+  <table class="tbl">
+    <tr><th style="width:30%;">문제</th><th>근거 / 현황</th></tr>
+    <tr><td><strong>문해력 저하</strong></td><td>OECD PIAAC 기준 한국 언어능력 점수 273점(2012) → 249점(2023)으로 <strong>24점 하락</strong>. 27개국 평균보다 13점 낮은 수준으로, 2012년 평균 대비 +4점이었던 것에서 역전됨.</td></tr>
+    <tr><td><strong>숏폼 중독·집중력 저하</strong></td><td>짧은 콘텐츠 중심 소비로 긴 글을 끝까지 읽고 이해하는 능력 약화. 학습·업무 수행 능력 저하로 연결.</td></tr>
+    <tr><td><strong>ADHD·난독증 사각지대</strong></td><td>집중 유지·해독·이해에 추가 지원 필요. 기존 도구는 난독증 지원/집중 관리/요약이 <strong>파편화</strong>되어 통합 서비스가 공백. 대부분 영어 기반이라 한국어 환자용은 전무.</td></tr>
+    <tr><td><strong>기존 AI의 한계</strong></td><td>ChatGPT·Gemini·Claude는 텍스트를 <strong>대신 읽어 요약</strong>할 뿐, 사용자가 실제로 읽었는지·이해했는지·향상됐는지는 관리하지 않음.</td></tr>
+  </table>
+
+  <h3>1.3 우리의 해결 방향</h3>
+  <div class="callout key">
+    <p style="margin:0;">AI가 내용을 <strong>대신 읽어주는</strong> 것이 아니라, 사용자가 <strong>스스로 읽고 이해하도록</strong> 돕는다.
+    읽기 행동·집중 상태를 실시간 분석하고 상황별 개입을 제공하여 독해 경험을 개선하고, 누적 데이터로 <strong>장기 문해력 성장</strong>에 기여한다.</p>
+  </div>
+  <p class="small muted">근거 연구: AI 주석 기반 텍스트 제시(LARF, CHI 2025)에서 AI 주석 텍스트를 읽은 참가자는 세부 내용 기억에서 기존 대비 <strong>18.3% 높은 점수</strong>를 기록, 읽기 이해도·만족도 모두 유의미하게 향상. 본 시스템은 이를 한국어 환경에서 실시간 구현.</p>
+</div>
+
+<!-- ============ 2. 차별화 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">2</div><div><h2>핵심 차별화 전략</h2><div class="en">Differentiation — "Isn't this just ChatGPT?"</div></div></div>
+
+  <div class="callout warn">
+    <h4 style="margin-top:0;">⚠ 이번 기획의 최대 리스크</h4>
+    <p style="margin:0;">심사위원 질문 <strong>"ChatGPT에 PDF 넣고 요약시키면 끝 아닌가요?"</strong> — 이 한 방에 무너지면 안 된다.
+    답은 <strong>기능 나열이 아니라 구조(폐루프)</strong>로 한다.</p>
+  </div>
+
+  <h3>2.1 핵심 프레임</h3>
+  <div class="formula center">
+    <b>GPT는 <span class="hl">텍스트</span>를 처리하고, 우리는 <span class="hl">사람</span>을 관리한다.</b>
+  </div>
+
+  <h3>2.2 폐루프(Closed-Loop) 구조 — 차별화의 본질</h3>
+  <div class="diagram">
+    <div class="row3">
+      <div class="node n-care"><div class="t">① 측정 (Measure)</div><div class="d">읽기 행동(스크롤·체류·이탈) + 이해도(퀴즈)로 인지부하·집중도 정량화</div></div>
+      <div class="node n-reduce"><div class="t">② 개입 (Intervene)</div><div class="d">상태에 따라 강조·쉬운 설명·넛지·즉석 퀴즈로 재집중·이해 유도</div></div>
+      <div class="node n-profile"><div class="t">③ 추적 (Track)</div><div class="d">누적 시계열로 Literacy Score 성장 곡선 산출 + 프로필 갱신</div></div>
+    </div>
+    <div class="arrow">↻ &nbsp; ③의 프로필이 다시 ①②의 개인화에 반영되는 순환 구조 &nbsp; ↻</div>
+  </div>
+
+  <h3>2.3 ChatGPT vs 본 서비스</h3>
+  <table class="tbl">
+    <tr><th style="width:34%;">기준</th><th style="width:33%;">ChatGPT / 일반 AI</th><th style="width:33%;">본 서비스</th></tr>
+    <tr><td>실제로 <strong>읽었는지</strong> 측정</td><td class="no">✕ 불가</td><td class="yes">✓ 인지부하(스크롤·체류·이탈) 실시간</td></tr>
+    <tr><td><strong>이해했는지</strong> 검증</td><td class="no">✕ 요약만 제공</td><td class="yes">✓ 난이도 보정 이해도 점수</td></tr>
+    <tr><td><strong>향상됐는지</strong> 추적</td><td class="no">✕ 세션 휘발</td><td class="yes">✓ 누적 시계열 → 성장 곡선</td></tr>
+    <tr><td><strong>개인화</strong></td><td class="no">△ 매번 초기화</td><td class="yes">✓ Dynamic Literacy Profile 누적</td></tr>
+    <tr><td><strong>신뢰성(환각)</strong></td><td class="no">△ 검증 없음</td><td class="yes">✓ RAG 그라운딩 + Faithfulness 평가</td></tr>
+    <tr><td><strong>목적</strong></td><td>정보를 대신 처리</td><td>사용자가 스스로 성장</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>한 줄 방어:</strong> "ChatGPT는 한 번 읽고 잊지만, 우리 시스템은 사용자가 <u>어떻게 읽는지</u> 측정하고, <u>이해했는지</u> 검증하고, <u>나아지는지</u> 평생 추적합니다."
+  </div>
+</div>
+
+<!-- ============ 3. 포지셔닝 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">3</div><div><h2>서비스 포지셔닝 &amp; 타깃</h2><div class="en">Positioning &amp; Target Users</div></div></div>
+
+  <h3>3.1 포지셔닝 결정</h3>
+  <table class="tbl">
+    <tr><th style="width:26%;">후보</th><th style="width:18%;">채택</th><th>판단</th></tr>
+    <tr><td>AI Reading Coach</td><td class="no">보류</td><td>"코치"는 챗봇처럼 들려 차별화가 약함.</td></tr>
+    <tr><td>Cognitive Reading <strong>OS</strong></td><td class="no">미채택</td><td>"운영체제"는 과장. 심사위원이 개념을 되물어 설명에 시간을 소모할 위험.</td></tr>
+    <tr><td><strong>개인화 문해력 성장 관리 시스템</strong></td><td class="yes">✓ 채택</td><td>"한 번 쓰고 끝"이 아니라 <strong>지속 관리·성장 파트너</strong>임을 정확히 전달. 방어 용이.</td></tr>
+  </table>
+
+  <div class="callout key"><strong>최종 포지셔닝 문구:</strong> "읽기 행동을 측정해 문해력 성장을 <u>지속적으로</u> 관리하는 개인 맞춤형 성장 파트너"</div>
+
+  <h3>3.2 타깃 사용자</h3>
+  <table class="tbl">
+    <tr><th style="width:24%;">세그먼트</th><th>니즈</th><th style="width:30%;">핵심 가치</th></tr>
+    <tr><td><strong>2030 청년 (1차)</strong></td><td>숏폼 중독으로 긴 글 집중·완독이 어려움</td><td>집중도 회복 넛지 + 완독 게이미피케이션</td></tr>
+    <tr><td><strong>학습자·취준생</strong></td><td>논문·보고서·기사 등 고난도 텍스트 독해</td><td>난이도 재구성 + 이해도 검증</td></tr>
+    <tr><td><strong>ADHD·난독증 (배리어프리)</strong></td><td>집중 유지·해독·이해에 추가 지원 필요</td><td>한국어 AI 주석·청킹·용어풀이 (공백 시장)</td></tr>
+  </table>
+
+  <h3>3.3 시장 공백</h3>
+  <p>난독증 폰트·집중 관리·요약 도구는 개별 존재하나 <strong>통합 서비스는 공백</strong>이며, 대부분 영어 기반.
+  <strong>한국어 기반 통합 문해력 성장 관리</strong>는 사실상 전무 — 본 프로젝트의 진입 지점.</p>
+</div>
+
+<!-- ============ 4. Literacy Score ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">4</div><div><h2>핵심 지표: Literacy Score 설계</h2><div class="en">The Heart of This Project</div></div></div>
+
+  <div class="callout key"><p style="margin:0;">차별화를 <strong>눈에 보이게</strong> 만드는 유일한 장치. "문해력이 향상됐다"는 주장을 <strong>단일 정량 지표 + 전후 비교 그래프</strong>로 증명한다.</p></div>
+
+  <h3>4.1 지표 구성</h3>
+  <div class="formula">
+    <b>Literacy Score</b> = f( <span class="hl">이해도</span>, <span class="hl">집중도</span>, <span class="hl">난이도 보정</span> )<br>
+    &nbsp;&nbsp;① <b>Comprehension</b> (결과지표) = 퀴즈 정답률 ÷ 지문 난이도(한국어 가독성 지수)로 정규화<br>
+    &nbsp;&nbsp;② <b>Engagement</b> (과정지표) = 스크롤 속도·체류시간·이탈률 → 능동읽기(Deep) vs 훑기(Skim) 점수<br>
+    &nbsp;&nbsp;③ <b>Cross-Validation 보정</b> = 정답이어도 스크롤이 비정상적으로 빠르면(찍기 의심) <span class="hl">감점</span><br>
+    &nbsp;&nbsp;④ <b>Longitudinal</b> = 단일 세션이 아닌 <span class="hl">시계열 추세(Trend)</span>로 성장 판정
+  </div>
+
+  <h3>4.2 두 가지 측정 차원</h3>
+  <table class="tbl">
+    <tr><th style="width:22%;">차원</th><th style="width:18%;">유형</th><th>측정 방식</th></tr>
+    <tr><td><strong>실시간 집중력</strong></td><td>Process Metric</td><td>인지부하(Cognitive Load): 스크롤 속도·문단 체류 시간·페이지 이탈률 → 능동/수동 읽기 실시간 점수화</td></tr>
+    <tr><td><strong>실질적 이해력</strong></td><td>Outcome Metric</td><td>인터랙티브 퀴즈: 난이도 × 정답률 → '텍스트 복잡도 대비 이해도(Comprehension Score)'</td></tr>
+  </table>
+
+  <h3>4.3 신뢰성 근거 (추가 질문 대비 키워드)</h3>
+  <ul>
+    <li><strong>Flesch-Kincaid(한국어 대응) 가독성 지수:</strong> 원문 난이도를 객관 정의하고 점수를 보정(Normalization)해 공정 비교.</li>
+    <li><strong>Cross-Validation:</strong> 퀴즈 정답 + 스크롤 패턴 교차 검증으로 '찍기' 배제, 데이터 신뢰도 향상.</li>
+    <li><strong>Longitudinal Study:</strong> 수주간 누적 시계열로 추세 분석 → 일시적 오류 배제.</li>
+  </ul>
+
+  <div class="callout warn">
+    <h4 style="margin-top:0;">❌ 절대 하지 말아야 할 말 (과장 = 거짓)</h4>
+    <ul style="margin-bottom:0;">
+      <li>"의사·전문가의 임상 시험을 거쳤습니다" — 실제로 안 했으므로 거짓.</li>
+      <li>"뇌파(EEG)를 측정합니다" — 하드웨어 없음, 불가능.</li>
+      <li>"사용자가 좋아하니까 향상된 겁니다" — 주관적 느낌은 과학적 근거 아님.</li>
+    </ul>
+  </div>
+  <div class="callout">
+    <strong>핵심 요약 답변:</strong> "우리는 <u>읽는 과정(행동 데이터)</u>과 <u>읽은 결과(퀴즈 데이터)</u>를 결합해 인지부하와 이해도를 정량화함으로써 문해력 향상을 <strong>과학적으로 추적</strong>합니다."
+  </div>
+</div>
+
+<!-- ============ 5. 아키텍처 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">5</div><div><h2>시스템 아키텍처</h2><div class="en">Hierarchical Multi-Agent Architecture</div></div></div>
+
+  <p>LangGraph 기반 <strong>계층형 멀티 에이전트</strong>. 메인 오케스트레이터가 전문 서브 에이전트를 동적으로 제어하고 결과물을 실시간 검증·교정한다.</p>
+
+  <div class="diagram">
+    <div style="max-width:360px;margin:0 auto 8px;"><div class="node n-user"><div class="t">User</div><div class="d">웹 텍스트 읽기 (뉴스·논문·기사)</div></div></div>
+    <div class="arrow">▼</div>
+    <div style="max-width:430px;margin:0 auto 8px;"><div class="node n-orch"><div class="t">Main Orchestrator</div><div class="d">LangGraph · StateGraph · FastAPI · Redis — 상태관리·라우팅·결과 검증(Self-Correction)</div></div></div>
+    <div class="arrow">▼</div>
+    <div class="row3">
+      <div class="node n-reduce"><div class="t">Content Reducer</div><div class="d">Semantic Chunking · 난이도 분석 · 쉬운 문장 변환 · 용어풀이(RAG)</div></div>
+      <div class="node n-care"><div class="t">Cognitive Care</div><div class="d">집중도 측정 · 산만함 감지 · 적응형 넛지 · 즉석 퀴즈</div></div>
+      <div class="node n-reward"><div class="t">Reward</div><div class="d">완독 분석 · 경험치·배지·레벨 · 성장 리포트</div></div>
+    </div>
+    <div class="arrow">▼</div>
+    <div style="max-width:430px;margin:0 auto 8px;"><div class="node n-profile"><div class="t">Literacy Profile Agent</div><div class="d">취약영역 분석 · 맞춤 학습경로 · Dynamic Profile (→ 다시 개인화에 반영)</div></div></div>
+    <div class="arrow">▼ &nbsp; 별도 검증 층 &nbsp; ▼</div>
+    <div style="max-width:430px;margin:0 auto 10px;"><div class="node n-qa"><div class="t">QA / Evaluation Agent &nbsp;<span style="font-size:7.5pt;">[신규]</span></div><div class="d">Promptfoo·Ragas 자동 회귀 검증 · 단위/통합 테스트 · 버그 탐지</div></div></div>
+    <div style="border-top:1px dashed var(--line);padding-top:8px;">
+      <div class="row2">
+        <div class="node n-infra"><div class="t">Shared Infra</div><div class="d">FastAPI · WebSocket · PostgreSQL · Redis</div></div>
+        <div class="node n-infra"><div class="t">Hybrid LLM Routing</div><div class="d">고난도→Claude / 경량작업→경량모델</div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>5.1 동적 호출 메커니즘 (StateGraph)</h3>
+  <p>사용자 상태 변화에 따라 에이전트 간 전이(Transition) 발생:</p>
+  <div class="callout"><code>Content Reducer → Cognitive Care → Reward Agent → Literacy Profile Agent</code> 순의 유기적 호출, 오케스트레이터가 공유 상태(Shared State) 기반으로 라우팅.</div>
+
+  <h3>5.2 에이전트 색인</h3>
+  <p>
+    <span class="pill">① Main Orchestrator</span>
+    <span class="pill">② Content Reducer</span>
+    <span class="pill">③ Cognitive Care</span>
+    <span class="pill">④ Reward</span>
+    <span class="pill">⑤ Literacy Profile</span>
+    <span class="pill">⑥ QA / Evaluation (신규)</span>
+  </p>
+</div>
+
+<!-- ============ 6. 에이전트 상세 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">6</div><div><h2>에이전트 상세 명세</h2><div class="en">Agent Specifications (6)</div></div></div>
+
+  <div class="acard">
+    <div class="hd n-orch"><span class="no">1</span><span class="nm">Main Orchestrator Agent</span><span class="en">Orchestration &amp; QA Loop</span></div>
+    <div class="bd">
+      <strong>역할:</strong> 전체 에이전트 제어·상태(State) 관리 / 동적 워크플로우 / 결과물 검증·품질관리(Self-Correction Loop) / Shared State 기반 협업·라우팅.<br>
+      <strong>기술:</strong> LangGraph(상태·워크플로우), StateGraph(공유상태 전이), FastAPI(비동기 이벤트), Python Rule-Based(적합성 판정), Redis(세션 캐시), Hybrid LLM Routing.<br>
+      <strong>처리 데이터:</strong> 문해력 프로필, 문서 컨텍스트, 실시간 집중도·진행률, 퀴즈 결과·행동 로그, 재작업 로그(Refinement Logs).
+    </div>
+  </div>
+
+  <div class="acard">
+    <div class="hd n-reduce"><span class="no">2</span><span class="nm">Content Reducer Agent</span><span class="en">Readability &amp; Restructure</span></div>
+    <div class="bd">
+      <strong>역할:</strong> 긴 글의 구조 분석·의미 단위 분할 / 사용자 수준별 가독성 최적화·재구성.<br>
+      <strong>기술:</strong> LLM(Claude/GPT-4o, 고난도 재구성), LangChain SemanticChunker, Flesch-Kincaid 유사 알고리즘, Prompt Engineering, Adaptive Reading Logic, <strong>RAG(용어풀이 그라운딩)</strong>.<br>
+      <strong>처리 과정:</strong> <code>원문 → 난이도 분석 → Semantic Chunking → 쉬운 문장 변환(Terminology Mapping) → 제공</code>
+    </div>
+  </div>
+
+  <div class="acard">
+    <div class="hd n-care"><span class="no">3</span><span class="nm">Cognitive Care Agent</span><span class="en">Focus &amp; Adaptive Nudge</span></div>
+    <div class="bd">
+      <strong>역할:</strong> 실시간 행동 분석 기반 집중도 측정 / 산만함 감지 시 적응형 넛지.<br>
+      <strong>기술:</strong> FastAPI &amp; WebSocket(스트리밍 수집), Redis(세션 로그), LLM(문맥 기반 퀴즈), Python Scoring Logic(다변량 집중도 점수).<br>
+      <strong>수집 데이터:</strong> 스크롤 속도·패턴, 체류 시간, 페이지 이탈(Tab Blur), 클릭 패턴, 읽기 진행률.<br>
+      <strong>Adaptive Nudge 3단계:</strong>
+      <ul style="margin:4px 0 0;">
+        <li><span class="pill">Soft</span> 핵심 문장 하이라이트, 폰트·가독성 최적화</li>
+        <li><span class="pill">Medium</span> "잠시 멈춰 다시 읽어볼까요?" 텍스트 가이드</li>
+        <li><span class="pill">Hard</span> 즉석 퀴즈로 인지적 재집중(Re-engagement) 유도</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="acard">
+    <div class="hd n-reward"><span class="no">4</span><span class="nm">Reward Agent</span><span class="en">Gamification &amp; Feedback</span></div>
+    <div class="bd">
+      <strong>역할:</strong> 완독 데이터 분석 기반 즉각 보상·성취감 / 정량 피드백 생성.<br>
+      <strong>기술:</strong> LLM(성장 메시지), PostgreSQL(완독·성취 영구 저장), Redis(실시간 경험치), Python Analytics(성장 지표).<br>
+      <strong>산출물:</strong> 완독률·집중도·정답률 기반 경험치·배지 / 주간·월간 집중도 변화 &amp; <strong>문해력 성장 추이 시각화</strong>.
+    </div>
+  </div>
+
+  <div class="acard">
+    <div class="hd n-profile"><span class="no">5</span><span class="nm">Literacy Profile Agent</span><span class="en">Personalization Engine</span></div>
+    <div class="bd">
+      <strong>역할:</strong> 장기 데이터 축적 기반 인지 프로필 구축 / 취약 영역 분석·개인화 학습경로.<br>
+      <strong>기술:</strong> PostgreSQL(고차원 프로필), Python Analytics(장기 패턴·상관 분석), LLM(콘텐츠·경로 추천).<br>
+      <strong>분석(Deep Insights):</strong> 인지적 취약점(집중 저하 주제·문장구조), 언어적 장벽(반복 인지부하 용어), 행동 특성(선호 속도·최적 집중 시간대).<br>
+      <strong>최종 결과물:</strong> Dynamic Literacy Profile + Personalized Learning Path → <strong>Content Reducer 난이도 조정에 재반영(피드백 루프)</strong>.
+    </div>
+  </div>
+
+  <div class="acard">
+    <div class="hd n-qa"><span class="no">6</span><span class="nm">QA / Evaluation Agent</span><span class="en">신규 — Product Stability</span></div>
+    <div class="bd">
+      <strong>추가 배경:</strong> "소프트웨어 필수는 기획·구현·QA(테스트)" — QA를 별도로 분리.<br>
+      <strong>역할:</strong> <em>제품 동작 안정성</em> 검증(런타임 결과 품질과 별개 층). 정상/이상 동작·버그 탐지, 단위·통합 테스트 자동화.<br>
+      <strong>기술:</strong> Promptfoo·Ragas 스위트를 <strong>CI처럼 자동 회귀 검증</strong>, LangSmith 추적 연동.<br>
+      <strong>포인트:</strong> 사용자 노출 런타임 에이전트가 아닌 <strong>엔지니어링 검증 에이전트</strong> — "검증 체계까지 설계한 팀"이라는 성숙도 가점.
+    </div>
+  </div>
+</div>
+
+<!-- ============ 7. RAG + 기술스택 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">7</div><div><h2>RAG 적용 범위 &amp; 기술 스택</h2><div class="en">RAG Scope · Tech Stack · LLM Routing</div></div></div>
+
+  <h3>7.1 RAG는 "딱 한 곳"에만</h3>
+  <div class="callout warn"><p style="margin:0;">RAG를 전역에 뿌리면 <strong>버즈워드 남발</strong>로 보인다. <strong>Content Reducer의 용어풀이/쉬운 설명</strong>에만 한정한다.</p></div>
+  <table class="tbl">
+    <tr><th style="width:30%;">항목</th><th>내용</th></tr>
+    <tr><td><strong>적용 위치</strong></td><td>어려운 전문용어 풀이 · 쉬운 설명 (Content Reducer)</td></tr>
+    <tr><td><strong>그라운딩 출처</strong></td><td>신뢰 출처(표준국어대사전·도메인 용어집·위키 등)</td></tr>
+    <tr><td><strong>효과</strong></td><td>환각 방지 → Ragas <strong>Faithfulness</strong>로 "GPT처럼 지어내지 않음"을 정량 증명 → 차별화 강화</td></tr>
+  </table>
+
+  <h3>7.2 공통 인프라</h3>
+  <table class="tbl">
+    <tr><th style="width:24%;">계층</th><th>스택</th></tr>
+    <tr><td>Backend</td><td>Python 3.11, FastAPI, WebSocket, Async Processing</td></tr>
+    <tr><td>Database</td><td>PostgreSQL(관계형 데이터), Redis(실시간 상태)</td></tr>
+    <tr><td>Agent Framework</td><td>LangGraph, StateGraph, LangChain, SemanticChunker, Hybrid LLM Routing</td></tr>
+  </table>
+
+  <h3>7.3 Hybrid LLM Routing — 모델 선택 확정</h3>
+  <table class="tbl">
+    <tr><th style="width:26%;">경로</th><th style="width:30%;">담당 작업</th><th>모델 (확정/권장)</th></tr>
+    <tr><td><strong>High-end</strong></td><td>고난도 추론, 복잡한 문장 재구성, 프로필 분석</td><td><strong>Claude (Opus / Sonnet)</strong> 1순위 — 한국어 문해·충실 재작성 강점</td></tr>
+    <tr><td><strong>Light-weight</strong></td><td>단순 청킹, 기초 점수 계산, 단순 문장 변환</td><td>경량 모델 (비용·레이턴시 최적화)</td></tr>
+  </table>
+  <p class="small muted">→ "한국어 품질 + 비용 효율"을 동시에 고려했다는 설계 근거가 됨.</p>
+</div>
+
+<!-- ============ 8. 검증 체계 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">8</div><div><h2>검증·평가 체계 (2층 구조)</h2><div class="en">Harness Engineering + Product QA</div></div></div>
+
+  <div class="callout key"><p style="margin:0;"><strong>핵심 정리:</strong> "오케스트레이터가 이미 검증하는데 QA를 또?"라는 의문의 답 — <strong>층(Layer)이 다르기 때문</strong>이다.</p></div>
+
+  <table class="tbl">
+    <tr><th style="width:18%;">구분</th><th style="width:30%;">A층 — 런타임 결과 품질</th><th style="width:30%;">B층 — 제품 동작 안정성 (신규)</th></tr>
+    <tr><td><strong>검사 대상</strong></td><td>에이전트가 <em>내놓은 답</em>이 좋은가</td><td>서비스가 <em>실제로 잘 굴러가는가</em></td></tr>
+    <tr><td><strong>담당</strong></td><td>Orchestrator Self-Correction + Ragas</td><td><strong>QA / Evaluation Agent</strong></td></tr>
+    <tr><td><strong>방식</strong></td><td>요약 충실도·퀴즈 적합성 실시간 평가</td><td>단위/통합 테스트, 회귀, 버그 탐지(CI)</td></tr>
+    <tr><td><strong>시점</strong></td><td>사용자 요청 처리 중(런타임)</td><td>빌드·배포 시(개발 파이프라인)</td></tr>
+  </table>
+
+  <h3>8.1 Harness Engineering 도구</h3>
+  <table class="tbl">
+    <tr><th style="width:24%;">도구</th><th>역할</th></tr>
+    <tr><td>Promptfoo</td><td>프롬프트 회귀 테스트 및 성능 저하 검증</td></tr>
+    <tr><td>Ragas</td><td>요약 품질(Faithfulness) 및 퀴즈 적합성(Relevance) 평가</td></tr>
+    <tr><td>LangSmith</td><td>에이전트 호출 추적(Tracing), 토큰 비용·레이턴시 모니터링</td></tr>
+  </table>
+
+  <h3>8.2 핵심 평가 지표</h3>
+  <p>
+    <span class="pill">Faithfulness</span><span class="pill">Answer Relevance</span><span class="pill">Readability Score</span>
+    <span class="pill">Latency</span><span class="pill">Token Cost</span><span class="pill">User Engagement</span><span class="pill">Completion Rate</span>
+  </p>
+
+  <div class="callout"><strong>발표 포인트:</strong> "기획 → 구현 → <u>QA</u>"의 SW 개발 정석을 갖추고, 응답 신뢰성·요약 충실도·실시간 데이터 정밀함을 <strong>이중 검증</strong>하는 하네스 엔지니어링 체계를 도입.</div>
+</div>
+
+<!-- ============ 9. 산출물/UI ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">9</div><div><h2>최종 산출물 &amp; UI</h2><div class="en">Deliverables &amp; Interface</div></div></div>
+
+  <h3>9.1 핵심 형태: AI-Powered Browser Extension</h3>
+  <p>웹 서핑 중 접하는 모든 텍스트(뉴스·블로그·논문·기사)에 실시간 개입하는 <strong>브라우저 확장 프로그램</strong>.</p>
+  <table class="tbl">
+    <tr><th style="width:30%;">요소</th><th>설명</th></tr>
+    <tr><td><strong>Seamless Overlay UI</strong></td><td>별도 창 없이 읽는 페이지 위에 레이어를 덧씌워 하이라이트·용어 툴팁·퀴즈 제공</td></tr>
+    <tr><td><strong>Floating Control Panel</strong></td><td>집중도 점수·진행률·실시간 보상(경험치)을 보여주는 우측 상단 미니 대시보드</td></tr>
+  </table>
+
+  <h3>9.2 주요 인터페이스</h3>
+  <div class="row2">
+    <div class="callout" style="margin:6px 0;">
+      <h4 style="margin-top:0;">Adaptive Reading Interface</h4>
+      <ul style="margin-bottom:0;">
+        <li><strong>Contextual Tooltips:</strong> 용어 위 마우스오버 시 쉬운 풀이 팝업 (RAG 그라운딩)</li>
+        <li><strong>Smart Highlighting:</strong> 핵심 문장 자동 볼드·배경 강조</li>
+        <li><strong>Interruption Pop-up:</strong> 집중 저하 시 흐름을 깨지 않는 인터랙티브 퀴즈 카드</li>
+      </ul>
+    </div>
+    <div class="callout" style="margin:6px 0;">
+      <h4 style="margin-top:0;">Personalized Growth Dashboard</h4>
+      <ul style="margin-bottom:0;">
+        <li><strong>Visualized Analytics:</strong> 문해력 성장 그래프, 주간·월간 집중도 통계 ★데모 핵심</li>
+        <li><strong>Gamified Profile:</strong> 독서 레벨·배지·연속 완독 기록</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>9.3 Backend &amp; Admin</h3>
+  <ul>
+    <li><strong>Centralized User Intelligence Hub:</strong> 읽기 로그·집중도·문해력 프로필 통합 저장 클라우드 플랫폼</li>
+    <li><strong>Automated Validation Pipeline (Harness):</strong> 생성 텍스트 품질·퀴즈 적절성 실시간 검증·기록</li>
+  </ul>
+</div>
+
+<!-- ============ 10. 로드맵 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">10</div><div><h2>개발 로드맵 &amp; 시연 우선순위</h2><div class="en">Roadmap &amp; Demo Priority</div></div></div>
+
+  <div class="callout warn"><p style="margin:0;">현재 기획은 풀스택으로 보면 과욕. <strong>차별화를 증명하는 최소 데모</strong>에 집중한다. (5인·대회 일정 기준)</p></div>
+
+  <h3>10.1 시연 우선순위</h3>
+  <table class="tbl">
+    <tr><th style="width:14%;">우선</th><th style="width:30%;">범위</th><th>이유</th></tr>
+    <tr><td><span class="must">필수</span></td><td>한 편의 글 → 실시간 집중도 측정 → 넛지/퀴즈 → <strong>Literacy Score 전후 그래프</strong></td><td>이 폐루프 하나면 GPT 차별화가 증명됨</td></tr>
+    <tr><td><span class="opt">권장</span></td><td>Content Reducer(쉬운 변환 + RAG 용어풀이), 게이미피케이션(배지·레벨)</td><td>경험 완성도·재방문 동기</td></tr>
+    <tr><td><span class="opt">권장</span></td><td>QA / Eval Agent 자동 검증 데모</td><td>엔지니어링 성숙도 가점 ("빌드 후 시간 남으면 붙임" 계획 반영)</td></tr>
+    <tr><td><span class="later">후순위</span></td><td>브라우저 확장 풀구현</td><td>비전으로 제시, 데모는 단일 웹페이지로 충분</td></tr>
+  </table>
+
+  <h3>10.2 확정 일정 (6/20 → 7/15)</h3>
+  <table class="tbl">
+    <tr><th style="width:16%;">구간</th><th style="width:23%;">기간</th><th style="width:27%;">목표</th><th>게이트(완료 기준)</th></tr>
+    <tr><td><strong>W0 셋업</strong></td><td>6/20(토)~6/22(월)</td><td>환경·API 계약</td><td><strong>M0</strong>: 더미 데이터 E2E 통신 OK</td></tr>
+    <tr><td><strong>W1 핵심 폐루프</strong></td><td>6/23(화)~6/29(월)</td><td>측정→개입→점수</td><td><strong>M1</strong>: 글 1편 데모 동작 (★차별화 증명)</td></tr>
+    <tr><td><strong>W2 기능 완성</strong></td><td>6/30(화)~7/6(월)</td><td>재구성·RAG·대시보드</td><td><strong>M2</strong>: 전 기능 통합 · 📄기획서 제출(7/7)</td></tr>
+    <tr><td><strong>W3 통합·QA</strong></td><td>7/7(화)~7/10(금)</td><td>안정화·검증</td><td><strong>M3</strong>: QA 통과 + 기능 동결(freeze)</td></tr>
+    <tr><td><strong>🟢 버퍼·리허설</strong></td><td>7/11(토)~7/14(화)</td><td>버그·폴리시·리허설</td><td><strong>M4</strong>: 제출본 패키징 완료</td></tr>
+    <tr><td><strong>제출</strong></td><td>7/15(수)</td><td>프로그램 제출</td><td>—</td></tr>
+  </table>
+  <p class="small muted">핵심 개발은 7/10에 종료하고 <strong>4일 버퍼</strong> 확보. M1(6/29)에서 차별화 데모가 이미 완성되므로 일정 지연에도 안전.</p>
+</div>
+
+<!-- ============ 10b. 일자별 일정 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">10</div><div><h2>개발 실행 일정 — 일자별</h2><div class="en">Day-level Schedule (개인 일정 반영)</div></div></div>
+
+  <h3>10.3 일자별 작업 강도</h3>
+  <div class="callout warn"><p style="margin:0;"><strong>7/2(목)·7/3(금)·7/4(토)는 개인 일정으로 작업 최소화.</strong> 손실분은 <strong>6/30·7/1 선작업</strong>과 <strong>7/5 보강</strong>으로 흡수 → 마일스톤 <strong>M2(7/6)는 그대로 유지</strong>.</p></div>
+  <div style="margin:8px 0;">
+    <span class="pill" style="background:#e3f6f3;border-color:#9fe0d8;">집중</span>
+    <span class="pill">보통</span>
+    <span class="pill" style="background:#fdf3e3;border-color:#f0cf96;">최소(개인일정)</span>
+    <span class="pill" style="background:#f0f1f4;color:#889;">기간 외</span>
+    <span class="pill" style="box-shadow:inset 0 0 0 2px var(--navy);">▣ 마일스톤</span>
+  </div>
+  <div class="cal">
+    <div class="dh">월</div><div class="dh">화</div><div class="dh">수</div><div class="dh">목</div><div class="dh">금</div><div class="dh">토</div><div class="dh">일</div>
+    <!-- W of 6/15 -->
+    <div class="d off"><div class="dt">6/15</div></div>
+    <div class="d off"><div class="dt">6/16</div></div>
+    <div class="d off"><div class="dt">6/17</div></div>
+    <div class="d off"><div class="dt">6/18</div><span class="lab">오늘</span></div>
+    <div class="d off"><div class="dt">6/19</div></div>
+    <div class="d md"><div class="dt">6/20</div><span class="lab">개발 시작·셋업</span></div>
+    <div class="d md"><div class="dt">6/21</div><span class="lab">셋업·API계약</span></div>
+    <!-- W of 6/22 -->
+    <div class="d hi ms"><div class="dt">6/22</div><span class="mk">M0</span><span class="lab">E2E 통신</span></div>
+    <div class="d hi"><div class="dt">6/23</div><span class="lab">폐루프 착수</span></div>
+    <div class="d hi"><div class="dt">6/24</div><span class="lab">측정·개입</span></div>
+    <div class="d hi"><div class="dt">6/25</div><span class="lab">집중도·넛지</span></div>
+    <div class="d hi"><div class="dt">6/26</div><span class="lab">Score·퀴즈</span></div>
+    <div class="d md"><div class="dt">6/27</div><span class="lab">통합 점검</span></div>
+    <div class="d md"><div class="dt">6/28</div><span class="lab">데모 다듬기</span></div>
+    <!-- W of 6/29 -->
+    <div class="d hi ms"><div class="dt">6/29</div><span class="mk">M1</span><span class="lab">★데모 완성</span></div>
+    <div class="d hi"><div class="dt">6/30</div><span class="lab">W2 선작업↑</span></div>
+    <div class="d hi"><div class="dt">7/1</div><span class="lab">W2 선작업↑</span></div>
+    <div class="d lo"><div class="dt">7/2</div><span class="lab">최소·개인일정</span></div>
+    <div class="d lo"><div class="dt">7/3</div><span class="lab">최소·개인일정</span></div>
+    <div class="d lo"><div class="dt">7/4</div><span class="lab">최소·개인일정</span></div>
+    <div class="d hi"><div class="dt">7/5</div><span class="lab">보강 집중↑</span></div>
+    <!-- W of 7/6 -->
+    <div class="d hi ms"><div class="dt">7/6</div><span class="mk">M2</span><span class="lab">전 기능 통합</span></div>
+    <div class="d hi"><div class="dt">7/7</div><span class="lab">통합·📄기획서</span></div>
+    <div class="d hi"><div class="dt">7/8</div><span class="lab">QA·안정화</span></div>
+    <div class="d hi"><div class="dt">7/9</div><span class="lab">QA·버그수정</span></div>
+    <div class="d hi ms"><div class="dt">7/10</div><span class="mk">M3</span><span class="lab">기능 동결</span></div>
+    <div class="d md"><div class="dt">7/11</div><span class="lab">버퍼</span></div>
+    <div class="d md"><div class="dt">7/12</div><span class="lab">버퍼</span></div>
+    <!-- W of 7/13 -->
+    <div class="d md"><div class="dt">7/13</div><span class="lab">시연 리허설</span></div>
+    <div class="d hi ms"><div class="dt">7/14</div><span class="mk">M4</span><span class="lab">제출본 패키징</span></div>
+    <div class="d sb"><div class="dt">7/15</div><span class="mk r">제출</span><span class="lab">프로그램 제출</span></div>
+    <div class="d off"><div class="dt">7/16</div></div>
+    <div class="d off"><div class="dt">7/17</div></div>
+    <div class="d off"><div class="dt">7/18</div></div>
+    <div class="d off"><div class="dt">7/19</div></div>
+  </div>
+
+  <h3>10.4 7/2~7/4 부하 재분배 (역할별)</h3>
+  <p class="small muted">W2(6/30~7/6) 작업을 <strong>선작업(6/30·7/1)</strong> · <strong>최소(7/2~7/4)</strong> · <strong>보강(7/5~7/6)</strong>으로 분할. 최소일엔 막힘 없는 가벼운 작업만 배치.</p>
+  <table class="tbl">
+    <tr><th style="width:18%;">역할</th><th style="width:30%;">6/30~7/1 (선작업·집중)</th><th style="width:24%;">7/2~7/4 (최소)</th><th>7/5~7/6 (보강·M2)</th></tr>
+    <tr><td><strong>① 코어</strong></td><td>Profile 연동·점수 보정 핵심 구현</td><td>코드 리뷰·시계열 설계 메모</td><td>시계열 추세 산출 마무리·통합 준비</td></tr>
+    <tr><td><strong>② 콘텐츠/RAG</strong></td><td>RAG 그라운딩 핵심 구현·출처 연동</td><td>프롬프트 미세조정·용어셋 수집</td><td>Reward 메시지·난이도 조정 마무리</td></tr>
+    <tr><td><strong>③ 백엔드</strong></td><td>시계열 누적·Profile 적재 핵심</td><td>로그 점검·스키마 문서화</td><td>경험치·보상 처리·API 정리</td></tr>
+    <tr><td><strong>④ 프론트</strong></td><td>성장 대시보드 핵심 구현</td><td>UI 에셋·스타일 정리</td><td>게이미피케이션·Floating Panel 마무리</td></tr>
+    <tr><td><strong>⑤ QA</strong></td><td>Ragas·Promptfoo 파이프라인 구축</td><td>골든셋 보강·결과 검토</td><td>회귀 1차 + M2 통합 점검</td></tr>
+  </table>
+  <div class="callout"><strong>요점:</strong> 7/2~7/4는 "혼자서도 가능한 가벼운 작업"만 남겨 개인 일정과 병행. 무거운 구현은 모두 앞(6/30·7/1)으로 당기고 7/5에 몰아 보강하므로, <strong>전체 마일스톤은 한 칸도 밀리지 않습니다.</strong></div>
+</div>
+
+<!-- ============ 10c. 역할별 일일 작업 ① ② ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">10</div><div><h2>역할별 일일 작업표</h2><div class="en">Daily Tasks by Role — 하루에 무엇을 할지</div></div></div>
+  <p class="small muted">자기 역할 표의 날짜 줄만 따라가면 됨. <span style="background:#fdf3e3;padding:1px 5px;border-radius:3px;">주황 줄</span>=7/2~4 최소 작업일, <span style="background:var(--navy);color:#fff;padding:1px 5px;border-radius:3px;">진한 날짜</span>=마일스톤.</p>
+
+  <div class="rolehd"><span class="dot" style="background:var(--orch);"></span><span class="rt">① 에이전트 코어 / 오케스트레이션</span><span class="rs">기술리드(이소희)</span></div>
+  <table class="daily">
+    <tr><th class="dc">날짜</th><th>할 일</th></tr>
+    <tr><td class="dc">6/20(토)</td><td>레포·모노레포 생성, LangGraph 프로젝트 골격</td></tr>
+    <tr><td class="dc">6/21(일)</td><td>공유 상태(Shared State) 스키마 1차 설계·팀 공유 ★기준점</td></tr>
+    <tr class="gate"><td class="dc">6/22(월) M0</td><td>오케스트레이터 골격 + 더미 에이전트 전이 연결</td></tr>
+    <tr><td class="dc">6/23(화)</td><td>상태 전이 로직(Reducer→Care→Reward→Profile)</td></tr>
+    <tr><td class="dc">6/24(수)</td><td>집중도→개입 트리거 라우팅 연결</td></tr>
+    <tr><td class="dc">6/25(목)</td><td>퀴즈 생성 호출·결과 수집 연결</td></tr>
+    <tr><td class="dc">6/26(금)</td><td>Literacy Score 합성 로직 v1(이해도×집중도×난이도)</td></tr>
+    <tr><td class="dc">6/27~28(토·일)</td><td>폐루프 E2E 연결 점검·버그</td></tr>
+    <tr class="gate"><td class="dc">6/29(월) M1</td><td>데모 완주 확인(상태머신 점검) ★차별화 증명</td></tr>
+    <tr><td class="dc">6/30(화) 선작업</td><td>Profile 연동 + 점수 보정(가독성·교차검증) 핵심</td></tr>
+    <tr><td class="dc">7/1(수) 선작업</td><td>시계열 추세 산출 + Self-Correction 루프</td></tr>
+    <tr class="min"><td class="dc">7/2~4(목~토) 최소</td><td>코드 리뷰·시계열 설계 메모·아키텍처 문서화</td></tr>
+    <tr><td class="dc">7/5(일) 보강</td><td>시계열 추세 마무리·통합 준비</td></tr>
+    <tr class="gate"><td class="dc">7/6(월) M2</td><td>전 기능 통합 디버깅</td></tr>
+    <tr><td class="dc">7/7(화)</td><td>통합 디버깅·라우팅 튜닝</td></tr>
+    <tr><td class="dc">7/8~9(수·목)</td><td>비용·레이턴시 튜닝, 버그 수정</td></tr>
+    <tr class="gate"><td class="dc">7/10(금) M3</td><td>기능 동결 후 안정화만</td></tr>
+    <tr><td class="dc">7/11~12(토·일)</td><td>잔여 버그 수정</td></tr>
+    <tr><td class="dc">7/13(월)</td><td>시연 리허설(코어 흐름)</td></tr>
+    <tr class="gate"><td class="dc">7/14(화) M4</td><td>빌드·제출본 점검</td></tr>
+    <tr class="sub"><td class="dc">7/15(수) 제출</td><td>프로그램 최종 제출</td></tr>
+  </table>
+
+  <div class="rolehd"><span class="dot" style="background:var(--reduce);"></span><span class="rt">② 콘텐츠 &amp; RAG 에이전트</span></div>
+  <table class="daily">
+    <tr><th class="dc">날짜</th><th>할 일</th></tr>
+    <tr><td class="dc">6/20(토)</td><td>개발환경·LLM SDK 확인, 프롬프트 폴더 구조</td></tr>
+    <tr><td class="dc">6/21(일)</td><td>한국어 가독성 지수 조사, 벡터DB 선정·셋업</td></tr>
+    <tr class="gate"><td class="dc">6/22(월) M0</td><td>Content Reducer 인터페이스 스텁(입출력 계약)</td></tr>
+    <tr><td class="dc">6/23(화)</td><td>청킹+쉬운 변환 파이프라인 v1(데모 글 1편)</td></tr>
+    <tr><td class="dc">6/24(수)</td><td>쉬운 변환 품질 튜닝·용어 추출</td></tr>
+    <tr><td class="dc">6/25(목)</td><td>인터랙티브 퀴즈 프롬프트(문맥 기반)</td></tr>
+    <tr><td class="dc">6/26(금)</td><td>난이도 분석(가독성 지수) 연동</td></tr>
+    <tr><td class="dc">6/27~28(토·일)</td><td>변환/퀴즈 프롬프트 정리</td></tr>
+    <tr class="gate"><td class="dc">6/29(월) M1</td><td>데모 콘텐츠 확정</td></tr>
+    <tr><td class="dc">6/30(화) 선작업</td><td>RAG 용어풀이 그라운딩 핵심 구현·출처 연동</td></tr>
+    <tr><td class="dc">7/1(수) 선작업</td><td>RAG Faithfulness 개선, Reward 성장 메시지</td></tr>
+    <tr class="min"><td class="dc">7/2~4(목~토) 최소</td><td>프롬프트 미세조정·용어셋 수집·용어 사전 정리</td></tr>
+    <tr><td class="dc">7/5(일) 보강</td><td>Reward 메시지·난이도 동적 조정 마무리</td></tr>
+    <tr class="gate"><td class="dc">7/6(월) M2</td><td>콘텐츠 통합 점검</td></tr>
+    <tr><td class="dc">7/7(화)</td><td>콘텐츠 품질 폴리시</td></tr>
+    <tr><td class="dc">7/8~9(수·목)</td><td>변환·퀴즈 버그 수정</td></tr>
+    <tr class="gate"><td class="dc">7/10(금) M3</td><td>동결 후 품질만 다듬기</td></tr>
+    <tr><td class="dc">7/11~12(토·일)</td><td>잔여 콘텐츠 폴리시</td></tr>
+    <tr><td class="dc">7/13(월)</td><td>시연 콘텐츠 리허설</td></tr>
+    <tr class="gate"><td class="dc">7/14(화) M4</td><td>콘텐츠 최종 점검</td></tr>
+    <tr class="sub"><td class="dc">7/15(수) 제출</td><td>프로그램 최종 제출</td></tr>
+  </table>
+</div>
+
+<!-- ============ 10d. 역할별 일일 작업 ③ ④ ============ -->
+<div class="page">
+  <div class="rolehd"><span class="dot" style="background:var(--profile);"></span><span class="rt">③ 백엔드 &amp; 실시간 데이터</span></div>
+  <table class="daily">
+    <tr><th class="dc">날짜</th><th>할 일</th></tr>
+    <tr><td class="dc">6/20(토)</td><td>FastAPI 스캐폴드, PostgreSQL·Redis 로컬 구동</td></tr>
+    <tr><td class="dc">6/21(일)</td><td>DB 스키마 설계(사용자·문서·행동로그·점수)·마이그레이션</td></tr>
+    <tr class="gate"><td class="dc">6/22(월) M0</td><td>WebSocket 채널 + 더미 행동데이터 송수신</td></tr>
+    <tr><td class="dc">6/23(화)</td><td>행동데이터(스크롤·체류·이탈) 실제 수집·저장</td></tr>
+    <tr><td class="dc">6/24(수)</td><td>집중도 Scoring Logic v1(다변량→점수)</td></tr>
+    <tr><td class="dc">6/25(목)</td><td>퀴즈 결과·진행률 저장 API</td></tr>
+    <tr><td class="dc">6/26(금)</td><td>점수 산출용 데이터 집계 API</td></tr>
+    <tr><td class="dc">6/27~28(토·일)</td><td>API 안정화·엣지 케이스</td></tr>
+    <tr class="gate"><td class="dc">6/29(월) M1</td><td>데모 데이터 시드</td></tr>
+    <tr><td class="dc">6/30(화) 선작업</td><td>시계열 누적 저장 + Profile 적재 핵심</td></tr>
+    <tr><td class="dc">7/1(수) 선작업</td><td>경험치·보상 처리(Redis), API 정리</td></tr>
+    <tr class="min"><td class="dc">7/2~4(목~토) 최소</td><td>로그 점검·스키마 문서화·더미 데이터 보강</td></tr>
+    <tr><td class="dc">7/5(일) 보강</td><td>경험치·보상·API 마무리</td></tr>
+    <tr class="gate"><td class="dc">7/6(월) M2</td><td>데이터 통합 점검</td></tr>
+    <tr><td class="dc">7/7(화)</td><td>API 부하·엣지 케이스</td></tr>
+    <tr><td class="dc">7/8~9(수·목)</td><td>API 버그 수정</td></tr>
+    <tr class="gate"><td class="dc">7/10(금) M3</td><td>동결 후 안정화</td></tr>
+    <tr><td class="dc">7/11~12(토·일)</td><td>배포용 DB 시드·잔여 수정</td></tr>
+    <tr><td class="dc">7/13(월)</td><td>시연 데이터 준비</td></tr>
+    <tr class="gate"><td class="dc">7/14(화) M4</td><td>배포·환경 점검</td></tr>
+    <tr class="sub"><td class="dc">7/15(수) 제출</td><td>프로그램 최종 제출</td></tr>
+  </table>
+
+  <div class="rolehd"><span class="dot" style="background:var(--care);"></span><span class="rt">④ 프론트엔드 &amp; 시각화</span></div>
+  <table class="daily">
+    <tr><th class="dc">날짜</th><th>할 일</th></tr>
+    <tr><td class="dc">6/20(토)</td><td>프론트 프로젝트 셋업, 디자인 토큰</td></tr>
+    <tr><td class="dc">6/21(일)</td><td>데모 셸 레이아웃(읽기 화면 와이어)·라우팅</td></tr>
+    <tr class="gate"><td class="dc">6/22(월) M0</td><td>더미 데이터로 점수·텍스트 화면 표시</td></tr>
+    <tr><td class="dc">6/23(화)</td><td>원문 렌더 + 하이라이트 컴포넌트</td></tr>
+    <tr><td class="dc">6/24(수)</td><td>넛지 UI(Soft/Medium) + 실시간 집중도 표시</td></tr>
+    <tr><td class="dc">6/25(목)</td><td>퀴즈 카드 UI(Interruption Pop-up)</td></tr>
+    <tr><td class="dc">6/26(금)</td><td>Literacy Score 그래프 v1(전후 비교) ★데모 핵심</td></tr>
+    <tr><td class="dc">6/27~28(토·일)</td><td>그래프·대시보드 데이터 연동</td></tr>
+    <tr class="gate"><td class="dc">6/29(월) M1</td><td>데모 화면 폴리시</td></tr>
+    <tr><td class="dc">6/30(화) 선작업</td><td>성장 대시보드(주간/월간) 핵심 구현</td></tr>
+    <tr><td class="dc">7/1(수) 선작업</td><td>게이미피케이션(배지·레벨)·Floating Panel</td></tr>
+    <tr class="min"><td class="dc">7/2~4(목~토) 최소</td><td>UI 에셋·아이콘·스타일·반응성 정리</td></tr>
+    <tr><td class="dc">7/5(일) 보강</td><td>대시보드·게이미피케이션 마무리</td></tr>
+    <tr class="gate"><td class="dc">7/6(월) M2</td><td>UI 통합 연결</td></tr>
+    <tr><td class="dc">7/7(화)</td><td>통합 연결·UX 다듬기</td></tr>
+    <tr><td class="dc">7/8~9(수·목)</td><td>UI 버그 수정</td></tr>
+    <tr class="gate"><td class="dc">7/10(금) M3</td><td>동결 후 폴리시</td></tr>
+    <tr><td class="dc">7/11~12(토·일)</td><td>발표 화면 최적화</td></tr>
+    <tr><td class="dc">7/13(월)</td><td>시연 리허설(화면)</td></tr>
+    <tr class="gate"><td class="dc">7/14(화) M4</td><td>데모 빌드 점검</td></tr>
+    <tr class="sub"><td class="dc">7/15(수) 제출</td><td>프로그램 최종 제출</td></tr>
+  </table>
+</div>
+
+<!-- ============ 10e. 역할별 일일 작업 ⑤ ============ -->
+<div class="page">
+  <div class="rolehd"><span class="dot" style="background:var(--qa);"></span><span class="rt">⑤ QA / 평가 &amp; 통합</span></div>
+  <table class="daily">
+    <tr><th class="dc">날짜</th><th>할 일</th></tr>
+    <tr><td class="dc">6/20(토)</td><td>테스트 프레임(pytest)·CI 골격, LangSmith 연동</td></tr>
+    <tr><td class="dc">6/21(일)</td><td>골든 테스트셋 준비(샘플 글·기대결과)·API 목업</td></tr>
+    <tr class="gate"><td class="dc">6/22(월) M0</td><td>E2E 더미 통신 테스트 → M0 게이트 확인</td></tr>
+    <tr><td class="dc">6/23(화)</td><td>핵심 모듈 단위테스트 작성 시작</td></tr>
+    <tr><td class="dc">6/24(수)</td><td>Scoring 로직·행동데이터 검증</td></tr>
+    <tr><td class="dc">6/25(목)</td><td>퀴즈 적합성 평가 초안(Ragas Relevance)</td></tr>
+    <tr><td class="dc">6/26(금)</td><td>점수 산출 정합성 테스트</td></tr>
+    <tr><td class="dc">6/27~28(토·일)</td><td>통합 스모크 테스트</td></tr>
+    <tr class="gate"><td class="dc">6/29(월) M1</td><td>데모 검증 체크리스트 → M1 게이트</td></tr>
+    <tr><td class="dc">6/30(화) 선작업</td><td>Ragas·Promptfoo 평가 파이프라인 구축</td></tr>
+    <tr><td class="dc">7/1(수) 선작업</td><td>Faithfulness/Relevance 측정 1차 실행</td></tr>
+    <tr class="min"><td class="dc">7/2~4(목~토) 최소</td><td>골든셋 보강·결과 검토·테스트 케이스 추가</td></tr>
+    <tr><td class="dc">7/5(일) 보강</td><td>회귀 1차 실행</td></tr>
+    <tr class="gate"><td class="dc">7/6(월) M2</td><td>M2 통합 점검 → 게이트</td></tr>
+    <tr><td class="dc">7/7(화)</td><td>통합 테스트 주도 + 📄기획서 최종 제출</td></tr>
+    <tr><td class="dc">7/8~9(수·목)</td><td>버그 트리아지·우선순위 관리</td></tr>
+    <tr class="gate"><td class="dc">7/10(금) M3</td><td>최종 QA 통과 확인 → 기능 동결</td></tr>
+    <tr><td class="dc">7/11~12(토·일)</td><td>회귀 재검증</td></tr>
+    <tr><td class="dc">7/13(월)</td><td>시연 리허설 진행·체크</td></tr>
+    <tr class="gate"><td class="dc">7/14(화) M4</td><td>제출본 검증 → M4</td></tr>
+    <tr class="sub"><td class="dc">7/15(수) 제출</td><td>프로그램 최종 제출</td></tr>
+  </table>
+
+  <div class="callout key" style="margin-top:14px;">
+    <h4 style="margin-top:0;">매일 공통 루틴 (10분)</h4>
+    <ul style="margin-bottom:0;">
+      <li><strong>아침:</strong> 전날 막힌 것 1줄 공유 → 오늘 할 일 확인(자기 표의 해당 날짜 줄)</li>
+      <li><strong>저녁:</strong> 한 일 커밋·푸시, 내일 의존 작업 있으면 담당자에게 미리 알림</li>
+      <li><strong>막히면:</strong> 30분 이상 혼자 붙잡지 말고 즉시 공유 (특히 ①의 공유상태 스키마 관련)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ 11. 역할분담 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">11</div><div><h2>개발 단계 역할 분담</h2><div class="en">Development Roles (5)</div></div></div>
+  <p class="small muted">기획은 확정 완료 — 아래는 <strong>개발 단계</strong> 기준 5인 분담. (기술리드: 이소희 / 컴퓨터과학과) · 이름·세부는 팀 합의 후 확정.</p>
+  <table class="tbl">
+    <tr><th style="width:20%;">개발 파트</th><th style="width:26%;">담당 모듈 · 에이전트</th><th style="width:34%;">핵심 개발 작업</th><th>산출물</th></tr>
+    <tr>
+      <td><strong>① 에이전트 코어 / 오케스트레이션</strong><br><span class="small muted">(기술리드)</span></td>
+      <td>Main Orchestrator(①) · Hybrid LLM Routing · StateGraph</td>
+      <td>LangGraph 워크플로우·공유상태(Shared State) 설계, 에이전트 전이·라우팅, Self-Correction 루프, <strong>Literacy Score 합성 로직 총괄</strong></td>
+      <td>멀티에이전트 코어, 점수 산출 엔진</td>
+    </tr>
+    <tr>
+      <td><strong>② 콘텐츠 &amp; RAG 에이전트</strong></td>
+      <td>Content Reducer(②) · Reward 메시지 일부(④)</td>
+      <td>Semantic Chunking, 난이도 분석(가독성 지수), 쉬운 문장 변환, <strong>RAG 용어풀이 그라운딩</strong>(출처 연동·Faithfulness)</td>
+      <td>재구성 파이프라인, RAG 용어풀이 모듈</td>
+    </tr>
+    <tr>
+      <td><strong>③ 백엔드 &amp; 실시간 데이터</strong></td>
+      <td>Cognitive Care 백엔드(③) · Literacy Profile 적재(⑤) · 공통 인프라</td>
+      <td>FastAPI·WebSocket 행동데이터 스트리밍 수집, <strong>집중도 Scoring Logic</strong>, PostgreSQL/Redis 스키마, 시계열 누적 저장</td>
+      <td>데이터 파이프라인, 집중도 측정 API</td>
+    </tr>
+    <tr>
+      <td><strong>④ 프론트엔드 &amp; 시각화</strong></td>
+      <td>Overlay UI · Floating Panel · Reward 시각화(④)</td>
+      <td>하이라이트·용어 툴팁·퀴즈 카드, Floating 대시보드, <strong>문해력 성장 그래프(데모 핵심 화면)</strong>, 게이미피케이션 UI</td>
+      <td>웹/확장 데모, 성장 대시보드</td>
+    </tr>
+    <tr>
+      <td><strong>⑤ QA / 평가 &amp; 통합</strong></td>
+      <td>QA · Evaluation Agent(⑥) · Harness</td>
+      <td>Promptfoo 회귀·Ragas(Faithfulness/Relevance)·LangSmith 추적, 단위/통합 테스트, 빌드·배포·시연 환경 구성</td>
+      <td>테스트 스위트, 평가 리포트, 배포 환경</td>
+    </tr>
+  </table>
+  <div class="callout" style="margin-top:10px;">
+    <strong>협업 규칙:</strong> 착수 전 ①이 <u>에이전트 간 API 계약(공유 상태 스키마)</u>을 먼저 확정 → 각 파트 병렬 개발.
+    <strong>필수 데모(폐루프)</strong>는 <strong>①·③·④</strong>가 우선 협업해 "측정 → 개입 → Literacy Score 그래프"를 먼저 완성하고, ②·⑤가 뒤이어 합류한다.
+  </div>
+
+  <div class="sec-head" style="margin-top:26px;"><div class="sec-num">12</div><div><h2>심사 예상 질문 &amp; 방어</h2><div class="en">Q&amp;A Defense</div></div></div>
+  <div class="qa"><div class="q">Q1. ChatGPT에 PDF 넣고 요약시키면 끝 아닌가요?</div><div class="a">GPT는 한 번 읽고 잊습니다. 우리는 <u>어떻게 읽는지</u> 측정하고, <u>이해했는지</u> 검증하고, <u>나아지는지</u> 추적하는 폐루프 시스템입니다.</div></div>
+  <div class="qa"><div class="q">Q2. 문해력 향상을 정말 측정할 수 있나요? (임상적으로)</div><div class="a">읽는 과정(행동 데이터)과 읽은 결과(퀴즈 데이터)를 결합해 인지부하·이해도를 정량화하고, 시계열 추세로 성장을 추적합니다. (EEG·임상시험 주장 금지)</div></div>
+  <div class="qa"><div class="q">Q3. 그 점수를 신뢰할 수 있나요?</div><div class="a">Flesch-Kincaid 가독성 보정으로 공정 비교, Cross-Validation으로 '찍기' 배제, Longitudinal로 일시 오류 배제합니다.</div></div>
+  <div class="qa"><div class="q">Q4. 멀티 에이전트가 과한 설계 아닌가요?</div><div class="a">각 에이전트가 측정·재구성·동기부여·프로파일링의 독립 책임을 가지며, 오케스트레이터가 검증·교정합니다. QA 층까지 둔 정석 SW 구조입니다.</div></div>
+  <div class="qa"><div class="q">Q5. 환각(hallucination)은 어떻게 막나요?</div><div class="a">용어풀이는 신뢰 출처에 RAG 그라운딩하고, Ragas Faithfulness로 정량 검증합니다.</div></div>
+</div>
+
+<!-- ============ 13. 리스크 + 부록 ============ -->
+<div class="page">
+  <div class="sec-head"><div class="sec-num">13</div><div><h2>리스크 &amp; 대응 / 부록</h2><div class="en">Risks &amp; Appendix</div></div></div>
+
+  <h3>13.1 리스크 &amp; 대응</h3>
+  <table class="tbl">
+    <tr><th style="width:34%;">리스크</th><th>대응</th></tr>
+    <tr><td>"GPT와 차별점 불명확" (최대 리스크)</td><td>폐루프 프레임 + Literacy Score 전후 그래프로 시각 증명</td></tr>
+    <tr><td>범위 과다 → 미완성 데모</td><td>필수 폐루프 우선, 나머지는 비전으로 제시</td></tr>
+    <tr><td>측정 점수 신뢰성 의심</td><td>가독성 보정·교차검증·시계열 3중 근거</td></tr>
+    <tr><td>LLM 비용·레이턴시</td><td>Hybrid Routing(고난도만 고성능), LangSmith 모니터링</td></tr>
+    <tr><td>한국어 가독성 지수 부재</td><td>Flesch-Kincaid '유사' 알고리즘으로 한국어 대응 지표 설계</td></tr>
+  </table>
+
+  <h3>13.2 기대효과 요약</h3>
+  <ol>
+    <li><strong>문해력 위기 실질 개입</strong> — 읽기 과정 전체를 관리하는 통합 AI 리딩 코치.</li>
+    <li><strong>숏폼 집중력 저하 해결</strong> — 3단계 개입으로 2030 세대 문해력 상승.</li>
+    <li><strong>난독증·ADHD 배리어프리</strong> — 한국어 AI 주석 기반(LARF 연구 +18.3% 근거).</li>
+    <li><strong>게임화 장기 습관 형성</strong> — 재방문 동기 구조로 실질적 향상.</li>
+    <li><strong>멀티에이전트 라이프스타일 모델 제시</strong> — AI Agent가 읽기 생활 인프라가 됨을 실증.</li>
+    <li><strong>개인화 성장 경로</strong> — 쓸수록 정교해지는 Dynamic Literacy Profile.</li>
+  </ol>
+
+  <h3>13.3 용어 정리</h3>
+  <table class="tbl">
+    <tr><th style="width:30%;">용어</th><th>의미</th></tr>
+    <tr><td>Literacy Score</td><td>이해도·집중도·난이도 보정을 합성한 본 서비스 핵심 문해력 지표</td></tr>
+    <tr><td>Closed-Loop</td><td>측정 → 개입 → 추적 → (재개인화) 순환 구조</td></tr>
+    <tr><td>Adaptive Nudge</td><td>집중 저하 시 단계별(Soft/Medium/Hard) 개입</td></tr>
+    <tr><td>Harness Engineering</td><td>Promptfoo·Ragas·LangSmith 기반 에이전트 품질 검증 체계</td></tr>
+    <tr><td>Dynamic Literacy Profile</td><td>누적 데이터로 실시간 갱신되는 사용자 인지 프로필</td></tr>
+  </table>
+
+  <div class="footer-note">AllDayHappyDay · 2026 AI·SW중심대학 디지털 경진대회 SW부문 · 최종 기획 보고서 v1.0 · 2026-06-18 · 내부 공유용</div>
+</div>
+
+</body>
+</html>
