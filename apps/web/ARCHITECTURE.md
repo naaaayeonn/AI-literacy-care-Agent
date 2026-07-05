@@ -99,54 +99,55 @@
 ```
 src/
 ├── app/
-│   ├── router.tsx          ★ 라우터 정의 (react-router-dom)
+│   ├── router.tsx          ✅ 라우터 정의 (react-router-dom)
 │   └── layouts/
-│       └── RootLayout.tsx  ★ 헤더 + 공통 레이아웃
+│       └── RootLayout.tsx  ✅ 헤더 + 공통 레이아웃
 │
-├── pages/                  ★ 6/21 신규 추가
-│   ├── ReadingPage.tsx     → /reading
-│   ├── DashboardPage.tsx   → /dashboard
+├── pages/                  ✅ 6/21 완성
+│   ├── ReadingPage.tsx     ✅ /reading (WebSocket·세션 연동 완료)
+│   ├── DashboardPage.tsx   ✅ /dashboard (성장 대시보드 완료)
 │   └── OnboardingPage.tsx  → / (추후)
 │
 ├── components/
 │   ├── reading/
-│   │   ├── ReadingPane.tsx         현재 stub → 6/23 실구현
-│   │   ├── HighlightText.tsx       stub → 6/23
-│   │   └── TermTooltip.tsx         stub → 6/23
+│   │   ├── ReadingPane.tsx         ✅ 6/23 실구현 (스크롤·체류·blur 이벤트 연동)
+│   │   ├── HighlightText.tsx       ✅ 6/23 구현 완료
+│   │   └── TermTooltip.tsx         ✅ 6/23 구현 + 7/5 RAG API 연동 + 7/7 인라인 글로스
 │   ├── nudge/
-│   │   ├── SoftNudge.tsx           stub → 6/24
-│   │   ├── MediumNudge.tsx         stub → 6/24
-│   │   └── HardNudge.tsx           stub → 6/25 (퀴즈 연동)
+│   │   ├── SoftNudge.tsx           ✅ 6/24 구현 완료
+│   │   ├── MediumNudge.tsx         ✅ 6/24 구현 완료
+│   │   └── HardNudge.tsx           ✅ 6/25 구현 (퀴즈 연동 완료)
 │   ├── quiz/
-│   │   └── QuizCard.tsx            stub → 6/25
+│   │   └── QuizCard.tsx            ✅ 6/25 구현 + 7/8 타이머 최적화 완료
 │   ├── dashboard/
-│   │   ├── GrowthDashboard.tsx     stub → 6/30
-│   │   └── LiteracyScoreChart.tsx  ★ stub → 6/26 (데모 핵심)
+│   │   ├── GrowthDashboard.tsx     ✅ 6/30 구현 완료
+│   │   ├── LiteracyScoreChart.tsx  ✅ 6/26 구현 완료 (데모 핵심)
+│   │   └── DetailedGrowthReport.tsx ✅ 6/30 구현 완료
 │   ├── gamification/
-│   │   ├── LevelBar.tsx            stub → 7/1
-│   │   ├── BadgeShelf.tsx          stub → 7/1
-│   │   └── XpCounter.tsx           stub → 7/1
+│   │   ├── LevelBar.tsx            ✅ 7/1 구현 완료
+│   │   ├── BadgeShelf.tsx          ✅ 7/1 구현 완료
+│   │   └── XpCounter.tsx           ✅ 7/1 구현 + 7/8 Hook 최적화
 │   ├── panel/
-│   │   └── FloatingControlPanel.tsx stub → 7/1
+│   │   └── FloatingControlPanel.tsx ✅ 7/1 구현 + 7/6 WS모니터링 + 7/8 렌더 최적화
 │   └── common/
 │       ├── Button.tsx              ✅ 구현 완료
 │       └── Card.tsx                ✅ 구현 완료
 │
 ├── stores/
-│   ├── readingStore.ts     집중도·진행률 → ③번 WebSocket 이벤트 연동
-│   ├── focusStore.ts       집중도 점수 → 넛지 트리거 기준
-│   └── scoreStore.ts       Literacy Score·XP·레벨
+│   ├── readingStore.ts     ✅ 집중도·진행률 → WebSocket 이벤트 연동 완료
+│   ├── focusStore.ts       ✅ 집중도 점수 → 넛지 트리거 연동 완료
+│   └── scoreStore.ts       ✅ Literacy Score·XP·레벨 완성
 │
 ├── styles/
 │   ├── tokens.css          ✅ 디자인 토큰 완성
 │   └── globals.css         ✅ Tailwind 바인딩 완성
 │
 ├── lib/
-│   ├── api.ts              ★ ③번 백엔드 응답 JSON 계약 타입 정의
-│   └── ws.ts               WebSocket 클라이언트 stub
+│   ├── api.ts              ✅ 백엔드 REST API 연동 완료 (스키마 매핑 포함)
+│   └── ws.ts               ✅ WebSocket 클라이언트 실구현 완료
 │
 └── types/
-    └── shared.ts           ★ ①번 Shared State 스키마 반영
+    └── shared.ts           ✅ ①번 Shared State 스키마 반영 완료
 ```
 
 ---
