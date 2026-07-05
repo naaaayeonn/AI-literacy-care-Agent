@@ -454,12 +454,12 @@ M1 종료 전 확인할 항목:
 M2 종료 전 확인할 항목:
 
 - [ ] 2번 Content Reducer 실제 출력과 연결된다.
-- [ ] 3번 행동 데이터 또는 focus_score와 연결된다.
-- [ ] 4번 프론트가 score/intervention을 표시할 수 있다.
+- [x] 3번 행동 데이터 또는 focus_score와 연결된다.
+- [x] 4번 프론트가 score/intervention을 표시할 수 있다.
 - [ ] 5번 QA가 trace를 받을 수 있다.
-- [ ] stub/real 모듈 전환 방식이 있다.
+- [x] stub/real 모듈 전환 방식이 있다.
 - [ ] 계약과 다른 응답이 들어오면 명확한 오류가 난다.
-- [ ] 핵심 통합 테스트가 통과한다.
+- [x] 핵심 통합 테스트가 통과한다.
 
 ---
 
@@ -672,13 +672,13 @@ git commit -m "fix: stabilize orchestrator demo flow"
 - [ ] Literacy Score v1 구현
 - [ ] score_breakdown 제공
 - [ ] trace/error/fallback 구조 구현
-- [ ] 프론트용 intervention/score JSON 제공
+- [x] 프론트용 intervention/score JSON 제공
 - [ ] 2번 Content Reducer 연결
-- [ ] 3번 Cognitive Care 또는 행동 데이터 연결
-- [ ] 4번 프론트 응답 연결
+- [x] 3번 Cognitive Care 또는 행동 데이터 연결
+- [x] 4번 프론트 응답 연결
 - [ ] 5번 QA trace 연결
-- [ ] 핵심 단위 테스트 작성
-- [ ] M1 데모 3회 이상 반복 성공
+- [x] 핵심 단위 테스트 작성
+- [x] M1 데모 3회 이상 반복 성공
 - [ ] M3 이후 구조 변경 없음
 - [ ] 발표용 폐루프 설명 준비
 
