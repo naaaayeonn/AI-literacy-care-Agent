@@ -71,8 +71,16 @@ def test_resolve_falls_back_to_stub_when_real_missing(monkeypatch):
     assert impl is _stub_marker
 
 
-def test_client_uses_stub_when_real_not_registered(monkeypatch):
-    """현재 real 모듈이 없으므로 real을 골라도 클라이언트는 stub 결과를 낸다."""
+def test_client_uses_real_bridge_when_selected(monkeypatch):
+    """content_reducer는 이제 real 브릿지(1번 임시)가 등록돼 있어, real 선택 시 브릿지가 실행된다.
+
+    (Gemini 호출은 막고 오프라인 경로만 확인 — 스텁의 chunk_01이 아니라
+    2번 ChunkDict 형태 chunk_{document_id}_NN을 낸다.)
+    """
+    from backend.app.agents.real import content_reducer_bridge
+
     monkeypatch.setenv("LITERACY_CONTENT_REDUCER_IMPL", "real")
+    monkeypatch.setattr(content_reducer_bridge, "_restructure", lambda text: None)
     result = run_content_reducer(_state())
-    assert result["difficulty_score"] == 60.0  # stub 산출값
+    assert result["chunks"][0]["chunk_id"].startswith("chunk_doc1_")
+    assert result["simplified_text"] == "Sample text"  # Gemini 폴백 → 원문

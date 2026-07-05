@@ -41,6 +41,22 @@ def test_real_cognitive_care_empty_events_is_full_focus(_real_cognitive_care):
     assert out["intervention_needed"] is False
 
 
+def test_none_duration_events_do_not_crash(_real_cognitive_care):
+    """CP-1: duration_ms=None인 blur/scroll이 들어와도 어댑터가 크래시를 막는다.
+
+    3번 원본 함수는 None을 못 막고 TypeError로 죽지만(H1), 어댑터의 _sanitize_events가
+    None 키를 제거해 vendored 함수의 기본값(1000)이 살아나야 한다.
+    """
+    state = build_m1_demo_state()
+    state["reading_events"] = [
+        {"type": "blur", "timestamp_ms": 1000, "duration_ms": None},
+        {"type": "scroll", "timestamp_ms": 2000, "duration_ms": None},
+    ]
+    out = run_cognitive_care(state)
+    assert 0.0 <= out["focus_score"] <= 100.0
+    validate_state_output("cognitive_care", out)
+
+
 def test_closed_loop_runs_with_real_cognitive_care(_real_cognitive_care):
     """real cognitive_care를 끼운 채 전체 폐루프가 끝까지 돈다."""
     result = run_reading_session(build_m1_demo_state())
