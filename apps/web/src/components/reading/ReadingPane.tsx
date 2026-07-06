@@ -128,7 +128,8 @@ export const ReadingPane: React.FC = () => {
     const scrollTop = el.scrollTop;
     const scrollHeight = el.scrollHeight - el.clientHeight;
     const progress = scrollHeight > 0 ? Math.round((scrollTop / scrollHeight) * 100) : 0;
-    setProgress(Math.min(100, progress));
+    const clampedProgress = Math.min(100, Math.max(0, progress));
+    setProgress(clampedProgress);
 
     const now = Date.now();
     const deltaY = Math.abs(scrollTop - lastScrollY.current);
@@ -139,7 +140,7 @@ export const ReadingPane: React.FC = () => {
     // ── 7/6 WebSocket 전송 ──
     const wsClient = getActiveWsClient();
     if (wsClient && sessionId) {
-      sendScrollEvent(wsClient, sessionId, velocity, progress);
+      sendScrollEvent(wsClient, sessionId, velocity, clampedProgress);
     }
 
     lastScrollY.current = scrollTop;
