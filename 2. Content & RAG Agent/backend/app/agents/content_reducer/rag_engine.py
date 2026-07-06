@@ -508,6 +508,75 @@ def _query_woorimalsem_api(word: str) -> dict | None:
     return None
 
 
+def _clean_korean_josa(word: str) -> str:
+    """
+    한국어 조사 및 문장부호를 제거하여 명사 원형을 추출한다.
+    """
+    # 1. 특수문자 및 공백 제거
+    word = re.sub(r"[^\w\s\-]", "", word).strip()
+    
+    # 2. 대표적인 한국어 조사 목록 (긴 조사 우선 매칭)
+    josa_list = [
+        "에서", "에게", "이랑", "까지", "부터", "조차", "마저",
+        "으로", "한테", "로서", "로써", "보다", "처럼",
+        "은", "는", "이", "가", "을", "를", "의", "에", "로",
+        "와", "과", "도", "만", "요"
+    ]
+    
+    for josa in josa_list:
+        if word.endswith(josa):
+            # 조사를 제외한 단어의 길이가 1 이상일 때만 제거
+            remain = word[:-len(josa)]
+            if len(remain) >= 1:
+                return remain.strip()
+                
+    return word
+
+
+def _query_llm_definition(word: str, context: str | None = None) -> str | None:
+    """
+    Gemini 2.0 Flash를 이용하여 단어의 의미를 실시간으로 유추하여 생성한다. (Step 1 동적 LLM 답변)
+    """
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key or api_key.startswith("your_"):
+        return None
+
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        
+        system_instruction = (
+            "당신은 리터러시 케어 에이전트의 한국어 단어 사전자문관입니다. "
+            "사용자가 기사를 읽다가 모르는 단어를 드래그했을 때, 그 단어의 뜻을 제공해야 합니다."
+        )
+        
+        if context:
+            prompt = (
+                f"다음 기사 문맥(Context)을 고려하여 단어 '{word}'의 뜻을 50자 이내의 친절한 한국어로 설명해 주세요.\n\n"
+                f"기사 문맥: {context}"
+            )
+        else:
+            prompt = f"단어 '{word}'의 뜻을 50자 이내의 친절한 한국어로 설명해 주세요."
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                system_instruction=system_instruction,
+            )
+        )
+        
+        result = response.text.strip()
+        if result:
+            # 혹시 따옴표 등으로 감싸져 있을 수 있으므로 정제
+            result = re.sub(r'^["\'“]+|["\'”]+$', '', result).strip()
+            return result
+    except Exception as e:
+        print(f"[rag_engine] LLM 단어 실시간 유추 실패: {e}")
+        
+    return None
+
+
 def lookup_term(word: str, context: str | None = None) -> TermDict:
     """
     단어 단건에 대한 용어 뜻을 조회한다. (확장 프로그램 hover lookup용 무료 경로)
@@ -516,14 +585,30 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
       1. 로컬 용어집에서 용어/별칭(alias) 대소문자 구분 없이 완벽 매칭 시도
       2. 국립국어원 우리말샘 오픈 API 조회 (WOORIMAL_API_KEY 설정 시 작동)
       3. sentence-transformers를 활용한 임베딩 코사인 유사도 검색 (유사도 >= 0.3)
-      4. 미발견 시 source="not_found" 반환 (프론트가 조용히 무시)
+      4. 사전에 없을 경우 기사 문맥을 바탕으로 한 LLM 실시간 의미 유추 시도
+      5. 최종 미발견 시 source="not_found" 반환 (프론트가 조용히 무시)
     """
     word_clean = word.strip()
-    word_lower = word_clean.lower()
+    word_clean = re.sub(r"[^\w\s\-]", "", word_clean).strip()
     
+    if not word_clean:
+        return TermDict(
+            term=word,
+            definition="",
+            source="not_found",
+            faithfulness_score=0.0,
+            chunk_id=""
+        )
+
+    # 매칭 시도할 단어 후보군 생성 (원문 자체, 그리고 조사 제거된 원형)
+    word_candidates = [word_clean]
+    cleaned_word = _clean_korean_josa(word_clean)
+    if cleaned_word != word_clean:
+        word_candidates.append(cleaned_word)
+
     if not _TERM_DICT:
         return TermDict(
-            term=word_clean,
+            term=cleaned_word,
             definition="",
             source="not_found",
             faithfulness_score=0.0,
@@ -531,34 +616,38 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
         )
 
     # 1. 완벽 매칭 (용어 또는 별칭)
-    for entry in _TERM_DICT:
-        term_val = entry.get("term", "")
-        aliases = [a.lower() for a in entry.get("aliases", [])]
-        if term_val.lower() == word_lower or word_lower in aliases:
+    for w in word_candidates:
+        w_lower = w.lower()
+        for entry in _TERM_DICT:
+            term_val = entry.get("term", "")
+            aliases = [a.lower() for a in entry.get("aliases", [])]
+            if term_val.lower() == w_lower or w_lower in aliases:
+                return TermDict(
+                    term=term_val,
+                    definition=entry.get("definition", ""),
+                    source=entry.get("source", "로컬 사전"),
+                    faithfulness_score=1.0,
+                    chunk_id=""
+                )
+
+    # 2. 우리말샘 오픈 API 조회 시도
+    for w in reversed(word_candidates):
+        api_res = _query_woorimalsem_api(w)
+        if api_res:
             return TermDict(
-                term=term_val,
-                definition=entry.get("definition", ""),
-                source=entry.get("source", "로컬 사전"),
+                term=api_res["term"],
+                definition=api_res["definition"],
+                source=api_res["source"],
                 faithfulness_score=1.0,
                 chunk_id=""
             )
 
-    # 2. 우리말샘 오픈 API 조회 시도
-    api_res = _query_woorimalsem_api(word_clean)
-    if api_res:
-        return TermDict(
-            term=api_res["term"],
-            definition=api_res["definition"],
-            source=api_res["source"],
-            faithfulness_score=1.0,
-            chunk_id=""
-        )
-
-    # 3. 임베딩 유사도 매칭 시도 (텍스트 레이어가 있는 경우)
+    # 3. 임베딩 유사도 매칭 시도
     model = _get_embedding_model()
     if model is not None:
         try:
-            query_vec = model.encode(word_clean).tolist()
+            # 조사 제거어로 임베딩 유사도 검색을 시도하여 품질 극대화
+            query_vec = model.encode(cleaned_word).tolist()
             cand_vecs = _get_term_embeddings(model)
             if cand_vecs and len(cand_vecs) == len(_TERM_DICT):
                 best_score = -1.0
@@ -579,9 +668,20 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
         except Exception as e:
             print(f"[rag_engine] 단어 lookup 임베딩 유사도 검색 실패: {e}")
 
-    # 4. 미발견 폴백
+    # 4. LLM 실시간 의미 유추 시도 (동적 LLM 답변 생성 로직 - 필수)
+    llm_def = _query_llm_definition(cleaned_word, context)
+    if llm_def:
+        return TermDict(
+            term=cleaned_word,
+            definition=llm_def,
+            source="LLM 실시간 유추",
+            faithfulness_score=1.0,
+            chunk_id=""
+        )
+
+    # 5. 최종 미발견 폴백
     return TermDict(
-        term=word_clean,
+        term=cleaned_word,
         definition="",
         source="not_found",
         faithfulness_score=0.0,

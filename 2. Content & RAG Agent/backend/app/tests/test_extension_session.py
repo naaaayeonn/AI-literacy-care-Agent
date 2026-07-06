@@ -130,3 +130,27 @@ def test_lookup_term_woorimalsem_api(mock_query_api):
     assert res["definition"] == "우리말샘에서 정의한 단어의 뜻입니다."
     assert res["source"] == "우리말샘 (국립국어원)"
     assert res["faithfulness_score"] == 1.0
+
+
+def test_clean_korean_josa():
+    """조사 제거 함수가 한국어 조사를 올바르게 제거하는지 검증."""
+    from backend.app.agents.content_reducer.rag_engine import _clean_korean_josa
+    assert _clean_korean_josa("주가를") == "주가"
+    assert _clean_korean_josa("방지법을") == "방지법"
+    assert _clean_korean_josa("메타인지는") == "메타인지"
+    assert _clean_korean_josa("사람에게는") == "사람에게"  # 조사 '는' 제거됨
+    assert _clean_korean_josa("가게") == "가게"  # '게'는 조사가 아니므로 제거되지 않음
+
+
+@patch("backend.app.agents.content_reducer.rag_engine._query_llm_definition")
+@patch("backend.app.agents.content_reducer.rag_engine._query_woorimalsem_api")
+def test_lookup_term_llm_fallback(mock_query_api, mock_query_llm):
+    """DB와 우리말샘 모두 없을 때 LLM 실시간 의미 유추로 폴백하는지 검증."""
+    mock_query_api.return_value = None
+    mock_query_llm.return_value = "문맥에서 유추한 실시간 단어 정의입니다."
+
+    res = lookup_term("미등록단어을", context="이 기사에는 미등록단어을 사용하는 문맥이 있습니다.")
+    assert res["term"] == "미등록단어"  # 조사 '을' 제거됨
+    assert res["definition"] == "문맥에서 유추한 실시간 단어 정의입니다."
+    assert res["source"] == "LLM 실시간 유추"
+    assert res["faithfulness_score"] == 1.0
