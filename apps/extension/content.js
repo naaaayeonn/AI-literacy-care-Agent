@@ -98,9 +98,9 @@ document.addEventListener('mouseup', (e) => {
       // Lookup term
       chrome.runtime.sendMessage({ type: "LOOKUP_TERM", word: selectedText }, (res) => {
         if (res && res.success && res.term && res.term.source !== 'not_found') {
-          showTooltip(e.clientX, e.clientY, res.term);
+          showTooltip(e.pageX, e.pageY, res.term);
         } else {
-          showTooltip(e.clientX, e.clientY, { term: selectedText, definition: "RAG 사전에서 뜻을 찾지 못했습니다.", source: "" });
+          showTooltip(e.pageX, e.pageY, { term: selectedText, definition: "RAG 사전에서 뜻을 찾지 못했습니다.", source: "" });
         }
       });
     }
