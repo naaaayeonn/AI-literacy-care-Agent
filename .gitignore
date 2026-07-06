@@ -33,4 +33,7 @@ __pycache__/
 *.pyc
 .env
 *.sqlite3
+*.db
+literacy_care.db
+
 

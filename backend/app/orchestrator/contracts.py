@@ -1,12 +1,9 @@
-"""에이전트 입출력 계약 (런타임 검증용).
+"""에이전트 간 계약 (인터페이스 정의).
 
-[초안: 6/20 / 구체화: 6/21~]
+[초안: 6/20 / 구체화: 6/21~ / 검증 구현: M2]
 
-각 팀원 모듈의 입력/출력 JSON 형태를 코드로 고정해, 실제 모듈을 붙일 때
-계약 위반을 명확한 에러로 잡는다. 문서 버전은 docs/API_CONTRACT.md.
-
-오늘은 시그니처/필드명만 자리 잡고, Pydantic 모델 또는 검증 함수는 통합
-단계(M2, 7/5~)에 채운다.
+각 역할의 입력/출력 JSON 형태를 코드로 명세하고, 누락 필드가 있으면
+에러를 조기에 잡는다. 상세 명세는 docs/API_CONTRACT.md.
 """
 
 from __future__ import annotations
@@ -20,7 +17,6 @@ COGNITIVE_CARE_OUTPUT_FIELDS = (
     "engagement_score",
     "intervention_needed",
     "intervention_level",
-    "evidence",
 )
 
 # 4번 Reward
@@ -33,9 +29,32 @@ PROFILE_OUTPUT_FIELDS = ("reading_level", "trend", "weaknesses", "recommended_ne
 QA_OUTPUT_FIELDS = ("passed", "faithfulness", "answer_relevance", "warnings")
 
 
-def validate_contract(name: str, payload: dict) -> None:
-    """필수 필드 누락 시 명확한 에러를 던진다.
+# 계약별 필수 필드 매핑
+_CONTRACT_REGISTRY: dict[str, tuple[str, ...]] = {
+    "content_reducer": CONTENT_REDUCER_OUTPUT_FIELDS,
+    "cognitive_care": COGNITIVE_CARE_OUTPUT_FIELDS,
+    "reward": REWARD_OUTPUT_FIELDS,
+    "profile": PROFILE_OUTPUT_FIELDS,
+    "qa": QA_OUTPUT_FIELDS,
+}
 
-    TODO(M2): 계약별 필수 필드 검증 구현. 지금은 자리만.
+
+def validate_contract(name: str, payload: dict) -> None:
+    """필수 필드 존재 여부 확인.
+    
+    누락 필드가 있으면 ContractValidationError를 발생시킨다.
     """
-    raise NotImplementedError("통합 단계에서 구현 예정")
+    required = _CONTRACT_REGISTRY.get(name)
+    if required is None:
+        return  # 미등록 계약은 통과
+    
+    missing = [f for f in required if f not in payload]
+    if missing:
+        raise ContractValidationError(
+            f"Contract '{name}' validation failed. Missing fields: {missing}"
+        )
+
+
+class ContractValidationError(Exception):
+    """계약 검증 실패 예외."""
+    pass
