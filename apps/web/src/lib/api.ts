@@ -23,8 +23,10 @@ export interface Article {
 // ──────────────────────────────────────────────
 
 export interface StartSessionRequest {
-  articleId: string;
+  articleId?: string;
   userId: string;
+  content?: string[];          // 크롬 확장 프로그램용: 페이지 긁어온 텍스트
+  source?: any;                // 크롬 확장 프로그램용: 메타데이터
 }
 
 export interface StartSessionResponse {
