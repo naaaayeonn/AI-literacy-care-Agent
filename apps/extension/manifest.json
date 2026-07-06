@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "AI Literacy Care",
+  "version": "1.0",
+  "description": "AI-powered literacy care extension that monitors focus and provides RAG-based term explanations.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Literacy Care"
+  }
+}
