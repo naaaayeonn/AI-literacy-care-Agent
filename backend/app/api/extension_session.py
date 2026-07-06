@@ -13,9 +13,9 @@ from ..orchestrator.state import create_initial_state
 from ..orchestrator.graph import run_reading_session
 from .frontend_contract import to_intervention_command, to_session_result
 from ..services.cognitive_care import calculate_focus_score, determine_intervention
-from ..agents.real.content_reducer_bridge import content_reducer_bridge
+from ..agents.content_reducer.agent import run_content_reducer
 
-router = APIRouter(prefix="/api/session", tags=["Extension Sessions"])
+router = APIRouter(prefix="/api/extension_session", tags=["Extension Sessions"])
 
 # -----------------
 # 1. Models
@@ -91,8 +91,8 @@ async def start_session(req: SessionStartRequestModel, db: AsyncSession = Depend
 
     state = create_initial_state(session_id=session_id, user_id=user_id, document_id=document_id, raw_text=raw_text)
     
-    # 2번 모듈(Content Reducer Bridge) 가동하여 초기 상태 세팅
-    updated_state = content_reducer_bridge(state)
+    # 2번 모듈(Content Reducer) 가동하여 초기 상태 세팅
+    updated_state = run_content_reducer(state)
     
     # 세션의 초기 상태(chunks, terms 등)를 Redis에 저장해두면 좋지만, 우선은 응답만 반환
     # (실제 프로덕션에서는 Redis Session Store를 써야 함)
@@ -206,8 +206,19 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
     initial_state["reading_events"] = state_events
     initial_state["quiz_result"] = {"score": 85.0} # 5번 목업 연결점
     
-    # 1. 2번 모듈 브릿지로 초기 text/chunk 연산
-    updated_state = content_reducer_bridge(initial_state)
+    # 1. 2번 모듈 초기 text/chunk 연산
+    updated_state = run_content_reducer(initial_state)
+    
+    # 임시 퀴즈 생성 로직 연동 (5번 모듈 대체)
+    from ..agents.content_reducer.quiz_generator import generate_quiz
+    if updated_state.get("chunks"):
+        first_chunk = updated_state["chunks"][0]
+        quiz = generate_quiz(first_chunk["chunk_id"], first_chunk.get("restructured_text", first_chunk["original_text"]))
+        # 5번 모듈 임시 목업 연결 (실제 평가 로직)
+        from ..agents.stubs.qa_evaluation_stub import evaluate_quiz_stub
+        updated_state["quiz_result"] = evaluate_quiz_stub(session_id, quiz)
+    else:
+        updated_state["quiz_result"] = {"score": 85.0}
     
     # 2. 오케스트레이터 그래프 실행 (점수 반영 등)
     final_state = run_reading_session(updated_state)

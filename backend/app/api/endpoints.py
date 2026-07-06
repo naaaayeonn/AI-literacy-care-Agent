@@ -36,13 +36,13 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
     host = request.headers.get("host", "localhost:8000")
     ws_endpoint = f"ws://{host}/ws/reading/{session_id}"
     
-    # 2번 연동 (실제 Content Reducer Bridge 적용)
-    from ..agents.real.content_reducer_bridge import content_reducer_bridge
+    # 2번 연동 (실제 Content Reducer 에이전트 적용)
+    from ..agents.content_reducer.agent import run_content_reducer
     
     mock_raw_text = "AI 기술이 발전함에 따라 우리의 삶은 크게 변화하고 있습니다. 특히 문해력이 중요한 시대가 되었습니다. 다양한 정보를 비판적으로 수용하고 활용하는 능력이 필수적입니다. 인공지능이 제공하는 정보를 그대로 믿기보다는 스스로 생각하고 판단하는 힘을 길러야 합니다."
     
     state = create_initial_state(session_id=session_id, user_id=req.userId, document_id=req.articleId, raw_text=mock_raw_text)
-    updated_state = content_reducer_bridge(state)
+    updated_state = run_content_reducer(state)
     
     def map_term(t):
         return {"term": t["term"], "definition": t["definition"], "source": t["source"], "faithfulnessScore": t.get("faithfulness_score", 1.0), "chunkId": t["chunk_id"]}
@@ -168,9 +168,12 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
     initial_state["reading_events"] = state_events
     
     from ..agents.stubs.qa_evaluation_stub import evaluate_quiz_stub
+    from ..agents.content_reducer.quiz_generator import generate_quiz
     
     # 5번 목업 연결점 (나중에 실제 모듈로 교체)
-    initial_state["quiz_result"] = evaluate_quiz_stub(session_id, {})
+    # 퀴즈 생성을 위해 임의의 데모 컨텍스트를 넘겨준다.
+    quiz = generate_quiz("chunk_result_test", "AI 리터러시 메타인지 핵심 내용입니다.")
+    initial_state["quiz_result"] = evaluate_quiz_stub(session_id, quiz)
     
     final_state = run_reading_session(initial_state)
     return to_session_result(final_state)
