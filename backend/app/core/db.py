@@ -1,42 +1,50 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
 import os
 
 # PostgreSQL URL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://admin:password@localhost:5432/literacy_care")
 
-# 로컬 개발/테스트용 SQLite fallback을 적용합니다.
-# 만약 환경 변수에 DATABASE_URL이 설정되어 있지 않거나 PostgreSQL 드라이버가 타임아웃이 나면 SQLite 파일 DB를 사용합니다.
+# PostgreSQL 연결 검증 여부 플래그
+_db_verified = False
+
 if DATABASE_URL.startswith("postgresql"):
-    # 로컬 연결 실패 대비 SQLite를 기본 fallback으로 설정할 수 있도록 처리
-    # (실제 API 호출 시 첫 연결 단계에서 검증 또는 안전하게 SQLite 파일 생성)
     engine = create_async_engine(
         DATABASE_URL, 
         echo=False,
-        connect_args={"timeout": 5} # 타임아웃을 짧게 5초로 설정
+        connect_args={"connect_timeout": 3} # psycopg 타임아웃 옵션은 connect_timeout 입니다.
     )
 else:
     engine = create_async_engine("sqlite+aiosqlite:///./literacy_care.db", echo=False)
 
-# SQLite 사용 시를 대비해 데이터베이스 접속 에러 발생 시 SQLite로 자동 fallback 처리하는 세션 생성을 만듭니다.
-# 또한 SQLite 커넥션 설정을 위한 분기도 여기에 들어갑니다.
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
 Base = declarative_base()
 
 async def get_db():
-    global engine, AsyncSessionLocal
-    try:
-        async with AsyncSessionLocal() as session:
-            yield session
-    except Exception as e:
-        # DB 연결 실패 시 SQLite로 긴급 전환
-        if "postgresql" in str(engine.url):
-            print(f"[DB] PostgreSQL connection failed ({e}). Falling back to SQLite...")
-            engine = create_async_engine("sqlite+aiosqlite:///./literacy_care.db", echo=True)
+    global engine, AsyncSessionLocal, _db_verified
+    
+    # 데이터베이스 연결 사전 확인 및 SQLite 폴백 전환 (컨텍스트 누수 방어)
+    if "postgresql" in str(engine.url) and not _db_verified:
+        try:
+            # 3초 타임아웃 연결 테스트 실행
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            _db_verified = True
+            print("[DB] PostgreSQL connection verified.")
+        except Exception as e:
+            print(f"[DB] PostgreSQL connection failed ({e}). Switching to SQLite...")
+            engine = create_async_engine("sqlite+aiosqlite:///./literacy_care.db", echo=False)
             AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-            async with AsyncSessionLocal() as session:
-                yield session
-        else:
-            raise e
+            _db_verified = True
+            
+    # 검증된 안전한 세션 생성
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
 

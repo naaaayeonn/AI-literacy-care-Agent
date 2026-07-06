@@ -93,9 +93,6 @@ async def start_session(req: SessionStartRequestModel, db: AsyncSession = Depend
     
     # 2번 모듈(Content Reducer) 가동하여 초기 상태 세팅
     updated_state = run_content_reducer(state)
-    
-    # 세션의 초기 상태(chunks, terms 등)를 Redis에 저장해두면 좋지만, 우선은 응답만 반환
-    # (실제 프로덕션에서는 Redis Session Store를 써야 함)
 
     def map_term(t):
         return {
@@ -125,107 +122,115 @@ async def start_session(req: SessionStartRequestModel, db: AsyncSession = Depend
 
 @router.post("/{session_id}/events")
 async def process_events(session_id: str, req: EventsRequestModel):
-    from ..core.redis import REDIS_URL
-    import redis.asyncio as aioredis
-    redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
-    
+    # 안전하게 로컬 폴백 가능한 get_redis() 사용
+    redis_client = await get_redis()
     redis_key = f"session:{session_id}:events"
     
-    # 1. 버퍼에 이벤트 추가
-    for ev in req.events:
-        await redis_client.rpush(redis_key, ev.model_dump_json())
-    
-    # 2. 버퍼에서 전체 읽어와서 집중도 재계산
-    all_events_raw = await redis_client.lrange(redis_key, 0, -1)
-    
-    reading_events = []
-    for raw in all_events_raw:
-        data = json.loads(raw)
-        reading_events.append({
-            "type": data["type"],
-            "timestamp_ms": data["timestamp_ms"],
-            "position": data.get("position"),
-            "duration_ms": data.get("duration_ms"),
-            "metadata": data
-        })
+    try:
+        # 1. 버퍼에 이벤트 추가
+        for ev in req.events:
+            await redis_client.rpush(redis_key, ev.model_dump_json())
+        
+        # 2. 버퍼에서 전체 읽어와서 집중도 재계산
+        all_events_raw = await redis_client.lrange(redis_key, 0, -1)
+        
+        reading_events = []
+        for raw in all_events_raw:
+            data = json.loads(raw)
+            reading_events.append({
+                "type": data["type"],
+                "timestamp_ms": data["timestamp_ms"],
+                "position": data.get("position"),
+                "duration_ms": data.get("duration_ms"),
+                "metadata": data
+            })
 
-    # 집중도 계산 (3번 엔진)
-    focus_score, penalties = calculate_focus_score(reading_events)
-    
-    # 임시 State 생성
-    state = create_initial_state(session_id=session_id, user_id="", document_id="", raw_text="")
-    state["reading_events"] = reading_events
-    state["focus_score"] = focus_score
-    state["focus_score_breakdown"] = {"penalties": penalties}
-    
-    # 개입 판단
-    intervention_type, intervention_level = determine_intervention(state)
-    state["intervention_needed"] = intervention_type != "none"
-    state["intervention_level"] = intervention_level
-    
-    # 응답 포맷
-    cmd = to_intervention_command(state)
-    
-    await redis_client.aclose()
-    return cmd
+        # 3. 집중도 계산 (3번 엔진) - 단일 반환값 수신
+        focus_score = calculate_focus_score(reading_events)
+        
+        # 임시 State 생성
+        state = create_initial_state(session_id=session_id, user_id="", document_id="", raw_text="")
+        state["reading_events"] = reading_events
+        state["focus_score"] = focus_score
+        state["focus_score_breakdown"] = {"penalties": {}}
+        
+        # 4. 개입 판단 - 3번 시그니처 맞춤
+        needed, level, msg = determine_intervention(focus_score)
+        
+        level_to_type = {"none": "none", "soft": "highlight", "medium": "nudge", "hard": "quiz"}
+        internal_type = level_to_type.get(level, "none")
+        
+        state["intervention_needed"] = needed
+        state["intervention_level"] = level
+        state["intervention"] = {
+            "level": level,
+            "type": internal_type,
+            "message": msg
+        }
+        
+        # 응답 포맷
+        cmd = to_intervention_command(state)
+        return cmd
+    finally:
+        await redis_client.aclose()
 
 @router.get("/{session_id}/result")
 async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)):
-    from ..core.redis import REDIS_URL
-    import redis.asyncio as aioredis
-    
     result = await db.execute(select(ReadingSession).filter(ReadingSession.id == session_id))
     session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
         
-    redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+    redis_client = await get_redis()
     redis_key = f"session:{session_id}:events"
-    all_events_raw = await redis_client.lrange(redis_key, 0, -1)
     
-    state_events = []
-    for raw in all_events_raw:
-        data = json.loads(raw)
-        state_events.append({
-            "type": data["type"],
-            "timestamp_ms": data["timestamp_ms"],
-            "position": data.get("position"),
-            "duration_ms": data.get("duration_ms"),
-            "metadata": data
-        })
+    try:
+        all_events_raw = await redis_client.lrange(redis_key, 0, -1)
         
-        # DB에 저장
-        db.add(ReadingEvent(
-            session_id=session_id,
-            event_type=data["type"],
-            timestamp_ms=data["timestamp_ms"],
-            metadata_json=data
-        ))
-    
-    initial_state = create_initial_state(session_id=session_id, user_id=session.user_id, document_id=session.document_id, raw_text="")
-    initial_state["reading_events"] = state_events
-    initial_state["quiz_result"] = {"score": 85.0} # 5번 목업 연결점
-    
-    # 1. 2번 모듈 초기 text/chunk 연산
-    updated_state = run_content_reducer(initial_state)
-    
-    # 임시 퀴즈 생성 로직 연동 (5번 모듈 대체)
-    from ..agents.content_reducer.quiz_generator import generate_quiz
-    if updated_state.get("chunks"):
-        first_chunk = updated_state["chunks"][0]
-        quiz = generate_quiz(first_chunk["chunk_id"], first_chunk.get("restructured_text", first_chunk["original_text"]))
-        # 5번 모듈 임시 목업 연결 (실제 평가 로직)
-        from ..agents.stubs.qa_evaluation_stub import evaluate_quiz_stub
-        updated_state["quiz_result"] = evaluate_quiz_stub(session_id, quiz)
-    else:
-        updated_state["quiz_result"] = {"score": 85.0}
-    
-    # 2. 오케스트레이터 그래프 실행 (점수 반영 등)
-    final_state = run_reading_session(updated_state)
-    
-    session.literacy_score = final_state.get("literacy_score", 0.0)
-    await db.commit()
-    await redis_client.delete(redis_key)
-    await redis_client.aclose()
-    
-    return to_session_result(final_state)
+        state_events = []
+        for raw in all_events_raw:
+            data = json.loads(raw)
+            state_events.append({
+                "type": data["type"],
+                "timestamp_ms": data["timestamp_ms"],
+                "position": data.get("position"),
+                "duration_ms": data.get("duration_ms"),
+                "metadata": data
+            })
+            
+            # DB에 저장
+            db.add(ReadingEvent(
+                session_id=session_id,
+                event_type=data["type"],
+                timestamp_ms=data["timestamp_ms"],
+                metadata_json=data
+            ))
+        
+        initial_state = create_initial_state(session_id=session_id, user_id=session.user_id, document_id=session.document_id, raw_text="")
+        initial_state["reading_events"] = state_events
+        initial_state["quiz_result"] = {"score": 85.0} # 5번 목업 연결점
+        
+        # 1. 2번 모듈 초기 text/chunk 연산
+        updated_state = run_content_reducer(initial_state)
+        
+        # 임시 퀴즈 생성 로직 연동 (5번 모듈 대체)
+        from ..agents.content_reducer.quiz_generator import generate_quiz
+        if updated_state.get("chunks"):
+            first_chunk = updated_state["chunks"][0]
+            quiz = generate_quiz(first_chunk["chunk_id"], first_chunk.get("restructured_text", first_chunk["original_text"]))
+            # 5번 모듈 임시 목업 연결 (실제 평가 로직)
+            from ..agents.stubs.qa_evaluation_stub import evaluate_quiz_stub
+            updated_state["quiz_result"] = evaluate_quiz_stub(session_id, quiz)
+        else:
+            updated_state["quiz_result"] = {"score": 85.0}
+        
+        # 2. 오케스트레이터 그래프 실행 (점수 반영 등)
+        final_state = run_reading_session(updated_state)
+        
+        session.literacy_score = final_state.get("literacy_score", 0.0)
+        await db.commit()
+        await redis_client.delete(redis_key)
+        
+        return to_session_result(final_state)
+    finally:
+        await redis_client.aclose()

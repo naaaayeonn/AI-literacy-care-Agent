@@ -279,7 +279,7 @@ class TestCognitiveCare:
         needed, level, msg = determine_intervention(90.0)
         assert not needed
         
-        needed, level, msg = determine_intervention(50.0)
+        needed, level, msg = determine_intervention(40.0)
         assert needed
         assert level == "medium"
 

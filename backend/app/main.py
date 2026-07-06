@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         print("[Startup] Database tables created successfully.")
     except Exception as e:
-        print(f"⚠️ DB 연결 실패 (Docker/PostgreSQL 미실행 등). 데모 모드로 계속 진행합니다: {e}")
+        print(f"[Warning] DB Connection Failed (Docker/PostgreSQL Offline). Continuing in Demo Mode: {e}")
     
     # Redis 연결 확인
     try:
