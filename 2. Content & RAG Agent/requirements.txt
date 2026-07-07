@@ -1,0 +1,25 @@
+# Core LLM
+anthropic>=0.25.0
+google-genai>=0.1.1
+python-dotenv>=1.0.0
+
+# LangChain (청킹)
+langchain>=0.2.0
+langchain-text-splitters>=0.2.0
+langchain-anthropic>=0.1.0
+
+# 임베딩 & 벡터 검색 (RAG)
+sentence-transformers>=2.7.0
+numpy>=1.26.0
+
+# FastAPI (3번 백엔드 연동 시)
+fastapi>=0.111.0
+uvicorn>=0.30.0
+pydantic>=2.7.0
+
+# 테스트
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+
+# 코드 품질
+ruff>=0.4.0

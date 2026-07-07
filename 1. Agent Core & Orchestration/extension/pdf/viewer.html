@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 리터러시 케어 — PDF 뷰어</title>
+    <link rel="stylesheet" href="viewer.css" />
+    <!-- 공용 설정·모듈 (classic, window.ALC_* 전역 노출) -->
+    <script src="../config.js"></script>
+    <script src="../shared/tracker.js"></script>
+    <script src="../shared/overlay.js"></script>
+    <script src="../shared/session_client.js"></script>
+  </head>
+  <body>
+    <header id="bar">
+      <span id="doc-title">PDF</span>
+      <span id="progress-label"></span>
+      <label id="open-btn">
+        문서 열기
+        <input id="file-input" type="file" accept="application/pdf" hidden />
+      </label>
+    </header>
+    <main id="viewer" aria-label="PDF 페이지"></main>
+    <div id="empty">
+      읽을 PDF를 열어주세요. 상단 <b>문서 열기</b> 버튼을 누르거나 PDF 링크로 진입하세요.
+    </div>
+    <!-- module: pdf.js 렌더 + shared 모듈 연결 -->
+    <script type="module" src="viewer.js"></script>
+  </body>
+</html>

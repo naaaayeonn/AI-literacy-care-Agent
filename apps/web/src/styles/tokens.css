@@ -1,0 +1,85 @@
+:root {
+  /* surface (warm paper, 눈피로↓) */
+  --color-bg: #FAF8F3;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F3F1EA;
+  --color-border: #E6E3DA;
+
+  /* text (warm near-black) */
+  --color-text: #211F1B;
+  --color-text-secondary: #6E6A60;
+  --color-text-muted: #A8A399;
+
+  /* brand / focus */
+  --color-primary: #4356D6;
+  --color-primary-hover: #3646BD;
+  --color-primary-tint: #EAEBFB;
+
+  /* growth / positive */
+  --color-growth: #1F9E6B;
+  --color-growth-tint: #E3F5EC;
+
+  /* Adaptive Nudge 3단계 */
+  --color-nudge-soft: #4DA3FF;     --color-nudge-soft-tint: #E8F3FF;
+  --color-nudge-medium: #F2A93B;   --color-nudge-medium-tint: #FDF1DC;
+  --color-nudge-hard: #F0653E;     --color-nudge-hard-tint: #FDE8E1;
+
+  /* metric (Literacy Score 차트) */
+  --color-comprehension: #4356D6;  /* 이해도(결과) */
+  --color-engagement: #15A2A2;     /* 집중도(과정) */
+
+  /* gamification */
+  --color-xp: #F2B705;
+  --color-level: #8257E6;
+
+  /* smart highlighting */
+  --color-highlight: #FFF0A3;
+
+  /* semantic */
+  --color-success: #1F9E6B;
+  --color-warning: #F2A93B;
+  --color-danger: #E5484D;
+  --color-info: #4DA3FF;
+
+  /* radius */
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  --radius-xl: 24px; --radius-full: 9999px;
+
+  /* spacing (4-base) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+
+  /* typography */
+  --font-sans: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --text-xs: 0.75rem;  --text-sm: 0.875rem; --text-base: 1rem;
+  --text-lg: 1.125rem; --text-xl: 1.25rem;  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem; --text-4xl: 2.25rem;
+  --text-reading: 1.125rem;            /* 읽기 본문 18px */
+  --leading-tight: 1.25; --leading-normal: 1.5; --leading-reading: 1.8;
+  --weight-regular: 400; --weight-medium: 500;
+  --weight-semibold: 600; --weight-bold: 700;
+  --tracking-kr: -0.01em;              /* 한글 살짝 좁게 */
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px rgba(33,31,27,0.06);
+  --shadow-md: 0 4px 12px rgba(33,31,27,0.08);
+  --shadow-panel: 0 8px 28px rgba(33,31,27,0.14);
+
+  /* motion (넛지=부드럽게 안착) */
+  --duration-fast: 150ms; --duration-base: 250ms; --duration-slow: 400ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* reading layout */
+  --reading-measure: 68ch;
+
+  /* z-index */
+  --z-highlight: 10; --z-tooltip: 40; --z-panel: 60; --z-quiz: 80;
+}
+
+[data-theme="dark"] {
+  --color-bg: #1A1916; --color-surface: #232220; --color-surface-alt: #2C2A27;
+  --color-border: #38352F; --color-text: #ECEAE3;
+  --color-text-secondary: #B5B1A6; --color-text-muted: #807C72;
+  --color-primary-tint: #2A2D52; --color-highlight: #5C5320;
+}

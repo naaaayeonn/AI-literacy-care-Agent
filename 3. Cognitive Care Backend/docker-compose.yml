@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ailiteracy_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: literacy_care
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+
+  redis:
+    image: redis:7-alpine
+    container_name: ailiteracy_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - default
+
+  backend:
+    build: .
+    container_name: ailiteracy_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql+psycopg://admin:password@db:5432/literacy_care
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - default
+
+volumes:
+  postgres_data:

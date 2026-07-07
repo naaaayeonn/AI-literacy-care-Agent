@@ -1,0 +1,3 @@
+/* 오버레이는 content_script.js 안에서 Shadow DOM으로 격리해 렌더한다.
+   이 파일은 manifest content_scripts.css 슬롯을 채우는 자리표시자이며,
+   페이지 전역 스타일 오염을 피하기 위해 의도적으로 비워 둔다. */

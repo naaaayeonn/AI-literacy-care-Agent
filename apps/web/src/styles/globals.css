@@ -1,0 +1,118 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-alt: var(--color-surface-alt);
+  --color-border: var(--color-border);
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-tint: var(--color-primary-tint);
+
+  --color-growth: var(--color-growth);
+  --color-growth-tint: var(--color-growth-tint);
+
+  --color-nudge-soft: var(--color-nudge-soft);
+  --color-nudge-soft-tint: var(--color-nudge-soft-tint);
+  --color-nudge-medium: var(--color-nudge-medium);
+  --color-nudge-medium-tint: var(--color-nudge-medium-tint);
+  --color-nudge-hard: var(--color-nudge-hard);
+  --color-nudge-hard-tint: var(--color-nudge-hard-tint);
+
+  --color-comprehension: var(--color-comprehension);
+  --color-engagement: var(--color-engagement);
+
+  --color-xp: var(--color-xp);
+  --color-level: var(--color-level);
+
+  --color-highlight: var(--color-highlight);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+  --spacing-16: var(--space-16);
+
+  --font-sans: var(--font-sans);
+  
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-3xl: var(--text-3xl);
+  --text-4xl: var(--text-4xl);
+  --text-reading: var(--text-reading);
+
+  --leading-tight: var(--leading-tight);
+  --leading-normal: var(--leading-normal);
+  --leading-reading: var(--leading-reading);
+
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-bold: var(--weight-bold);
+
+  --letter-spacing-kr: var(--tracking-kr);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-panel: var(--shadow-panel);
+
+  --z-highlight: var(--z-highlight);
+  --z-tooltip: var(--z-tooltip);
+  --z-panel: var(--z-panel);
+  --z-quiz: var(--z-quiz);
+}
+
+/* CSS Reset & Default Styles */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-kr);
+    line-height: var(--leading-normal);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Utility classes for reading pane */
+@layer utilities {
+  .reading {
+    max-width: var(--reading-measure);
+    line-height: var(--leading-reading);
+    font-size: var(--text-reading);
+  }
+}

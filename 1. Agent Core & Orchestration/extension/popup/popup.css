@@ -1,0 +1,93 @@
+* {
+  box-sizing: border-box;
+  font-family: "Pretendard", -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  width: 280px;
+  background: #f7f8fb;
+}
+
+.card {
+  padding: 18px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.logo {
+  font-size: 20px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1a1a2e;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  display: none;
+}
+
+.slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #cbd2e0;
+  border-radius: 999px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .slider {
+  background: #5b6cff;
+}
+
+.toggle input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #44485a;
+}
+
+.hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #5b6cff;
+  min-height: 16px;
+}

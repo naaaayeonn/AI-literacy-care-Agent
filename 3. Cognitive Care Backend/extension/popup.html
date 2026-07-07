@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Literacy Care</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>AI 리터러시 케어</h2>
+    <p id="status-text">대기 중...</p>
+    
+    <div class="btn-group">
+      <button id="btn-start" class="btn primary">케어 시작</button>
+      <button id="btn-stop" class="btn secondary" disabled>케어 종료</button>
+    </div>
+    
+    <div id="result-box" class="hidden">
+      <h3>세션 결과</h3>
+      <p>집중도 점수: <span id="score-val">0</span>점</p>
+      <p id="message-val"></p>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
