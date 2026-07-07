@@ -84,7 +84,7 @@ setInterval(() => {
 
 // 4. RAG Term Lookup (Hover/Double Click/Drag)
 function handleTextSelection(e) {
-  if (!isSessionActive) return;
+  // 세션 없어도 단어 조회는 허용 (케어 시작 전에도 동작)
   
   // Ignore clicks inside the tooltip
   if (currentTooltip && currentTooltip.contains(e.target)) return;
