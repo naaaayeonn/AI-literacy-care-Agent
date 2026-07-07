@@ -627,6 +627,9 @@ def _query_llm_definition(word: str, context: str | None = None) -> str | None:
             result = re.sub(r'^["\'“]+|["\'”]+$', '', result).strip()
             return result
     except Exception as e:
+        import urllib.error
+        if isinstance(e, urllib.error.HTTPError) and e.code == 429:
+            return "💡 구글 API 요청 한도가 초과되었습니다. 잠시 후 다시 드래그해주세요."
         print(f"[rag_engine] LLM 단어 실시간 유추 실패: {e}")
         raise e
         
