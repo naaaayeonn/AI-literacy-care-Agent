@@ -531,7 +531,7 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
             "part": "word",
             "sort": "dict",
             "start": 1,
-            "num": 5
+            "num": 10
         }
         encoded_params = urllib.parse.urlencode(query_params)
         url = f"https://opendict.korean.go.kr/api/search?{encoded_params}"
