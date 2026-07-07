@@ -102,40 +102,36 @@ def _demo_restructure(text: str, level: int) -> str:
     simplified = " ".join(s.strip() for s in sentences if s.strip())
     return f"[{label} 수준 재구성] {simplified}"
 
+from backend.app.agents.content_reducer.snowchat_client import is_snowchat_available, _call_llm_via_snowchat
 
 # ---------------------------------------------------------------------------
-# 단일 청크 LLM 호출
+# 데모 / Stub 재구성
 # ---------------------------------------------------------------------------
 
-def _call_llm(
-    client,
-    chunk_text: str,
-    level: int,
-    domain: str,
-    difficulty: float,
-    term_count: int,
-) -> tuple[str, str]:
-    """
-    Gemini API를 호출하여 텍스트를 재구성한다.
+_LEVEL_LABELS = {
+    1: "초급",
+    2: "초중급",
+    3: "중급",
+    4: "중고급",
+    5: "전문가",
+}
 
-    Returns:
-        (restructured_text, model_used)
-    """
-    from google.genai import types
 
-    # 1번의 딜리버리 플랜에 따라 gemini-2.0-flash 사용
-    model = "gemini-2.0-flash"
-    prompt = build_restructure_prompt(chunk_text, level, domain)
+def _demo_restructure(text: str, level: int) -> str:
+    """API 없이 동작하는 데모용 재구성."""
+    # 1. 고품질 데모 캐시 데이터 매칭 시도
+    if _FALLBACK_DATA and "chunks" in _FALLBACK_DATA:
+        normalized_text = text.replace(" ", "").replace("\n", "")
+        for entry in _FALLBACK_DATA["chunks"]:
+            ref_text = entry["original_text"].replace(" ", "").replace("\n", "")
+            if normalized_text in ref_text or ref_text in normalized_text:
+                return entry["restructured_text"]
 
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=RESTRUCTURE_SYSTEM_PROMPT,
-        ),
-    )
-    result = response.text.strip()
-    return result, model
+    # 2. 매칭 실패 시 단순 시뮬레이션
+    label = _LEVEL_LABELS.get(level, "중급")
+    sentences = re.split(r"(?<=[다요했됩습])[.]\s*|(?<=[.!?])\s+", text)
+    simplified = " ".join(s.strip() for s in sentences if s.strip())
+    return f"[{label} 수준 재구성] {simplified}"
 
 
 # ---------------------------------------------------------------------------
@@ -180,8 +176,7 @@ def restructure_text(
         return chunks
 
     # 실제 LLM 호출 시도
-    client = _get_client()
-    if client is None:
+    if not is_snowchat_available():
         # API 키 없으면 demo로 폴백
         for chunk in chunks:
             chunk["restructured_text"] = _demo_restructure(
@@ -189,18 +184,18 @@ def restructure_text(
             )
         return chunks
 
+    model_used = "gemini-2.5-flash"
+
     for chunk in chunks:
         chunk_difficulty = chunk.get("difficulty", difficulty_score)
         term_count = len(chunk.get("terms", []))
 
         try:
-            restructured, model_used = _call_llm(
-                client=client,
-                chunk_text=chunk["original_text"],
-                level=level,
-                domain=domain,
-                difficulty=chunk_difficulty,
-                term_count=term_count,
+            prompt = build_restructure_prompt(chunk["original_text"], level, domain)
+            restructured = _call_llm_via_snowchat(
+                model=model_used,
+                prompt=prompt,
+                system_instruction=RESTRUCTURE_SYSTEM_PROMPT
             )
             chunk["restructured_text"] = restructured
             # routing 메타 정보 (trace용)

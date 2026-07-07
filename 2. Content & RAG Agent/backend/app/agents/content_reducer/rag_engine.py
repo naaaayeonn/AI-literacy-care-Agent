@@ -532,19 +532,16 @@ def _clean_korean_josa(word: str) -> str:
                 
     return word
 
+from backend.app.agents.content_reducer.snowchat_client import is_snowchat_available, _call_llm_via_snowchat
 
 def _query_llm_definition(word: str, context: str | None = None) -> str | None:
     """
-    Gemini 2.0 Flash를 이용하여 단어의 의미를 실시간으로 유추하여 생성한다. (Step 1 동적 LLM 답변)
+    Gemini 2.5 Flash를 이용하여 단어의 의미를 실시간으로 유추하여 생성한다. (Step 1 동적 LLM 답변)
     """
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key or api_key.startswith("your_"):
+    if not is_snowchat_available():
         return None
 
     try:
-        from google import genai
-        client = genai.Client(api_key=api_key)
-        
         system_instruction = (
             "당신은 리터러시 케어 에이전트의 한국어 단어 사전자문관입니다. "
             "사용자가 기사를 읽다가 모르는 단어를 드래그했을 때, 그 단어의 뜻을 제공해야 합니다."
@@ -558,15 +555,12 @@ def _query_llm_definition(word: str, context: str | None = None) -> str | None:
         else:
             prompt = f"단어 '{word}'의 뜻을 50자 이내의 친절한 한국어로 설명해 주세요."
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_instruction,
-            )
+        result = _call_llm_via_snowchat(
+            model="gemini-2.5-flash",
+            prompt=prompt,
+            system_instruction=system_instruction
         )
         
-        result = response.text.strip()
         if result:
             # 혹시 따옴표 등으로 감싸져 있을 수 있으므로 정제
             result = re.sub(r'^["\'“]+|["\'”]+$', '', result).strip()
