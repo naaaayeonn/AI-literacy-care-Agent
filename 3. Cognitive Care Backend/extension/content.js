@@ -35,13 +35,9 @@ function flushEvents() {
   const toSend = [...eventsQueue];
   eventsQueue = [];
   
+  // fire-and-forget: 응답 콜백 없이 전송 → "message channel closed" 에러 방지
   try {
-    chrome.runtime.sendMessage({ type: "FLUSH_EVENTS", events: toSend }, (res) => {
-      if (chrome.runtime.lastError) return;
-      if (res && res.intervention && res.intervention.payload) {
-        handleIntervention(res.intervention);
-      }
-    });
+    chrome.runtime.sendMessage({ type: "FLUSH_EVENTS", events: toSend });
   } catch (err) { /* 콘텍스트 상실 시 무시 */ }
 }
 

@@ -62,13 +62,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "FLUSH_EVENTS") {
+    // fire-and-forget: 응답 채널 안 잡아서 "message channel closed" 에러 방지
     (async () => {
       try {
         const stored = await chrome.storage.local.get(['sessionId']);
-        if (!stored.sessionId) {
-          sendResponse({ success: false });
-          return;
-        }
+        if (!stored.sessionId) return;
 
         const fetchRes = await fetch(`${API_BASE}/session/${stored.sessionId}/events`, {
           method: "POST",
@@ -76,13 +74,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           body: JSON.stringify({ events: message.events })
         });
         const data = await fetchRes.json();
-        sendResponse({ success: true, intervention: data });
+
+        // 개입(intervention)이 있으면 탭으로 직접 전송
+        if (data && data.payload && sender.tab && sender.tab.id) {
+          chrome.tabs.sendMessage(sender.tab.id, {
+            type: "INTERVENTION",
+            intervention: data
+          }).catch(() => {});
+        }
       } catch (e) {
         console.error("[BG] FLUSH_EVENTS error:", e);
-        sendResponse({ success: false, error: e.toString() });
       }
     })();
-    return true;
+    // return true 안 함 → 채널 즉시 닫힘, 에러 없음
+    return;
   }
 
   if (message.type === "LOOKUP_TERM") {
