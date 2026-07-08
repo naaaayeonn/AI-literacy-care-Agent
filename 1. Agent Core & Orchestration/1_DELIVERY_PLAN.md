@@ -130,7 +130,7 @@
 | ✅ | 확장 크롬 로드 → **웹 수동 E2E 왕복** | ON→기사 읽기→넛지/개입 오버레이 동작 확인 *(7/8 Playwright 실브라우저: start→개입 escalation none→soft→medium→hard→오버레이 토스트+배지 렌더 시각 검증)* | 7/7 |
 | 🔄 | **PDF 왕복 E2E**(pdf.js) | PDF 링크→뷰어 전환→스크롤/개입 동작 확인 *(계약·공용 글루·어댑터 배선 검증 완료. 라이브 pdf.js 추출만 실확장 로드 필요 — chrome.runtime worker)* | 7/8 |
 | ✅ | 확장↔백엔드 이벤트 스키마 최종 정합(G6) | 확장이 보내는 이벤트가 백엔드 계약과 일치 *(tracker {type,timestamp_ms,position?,duration_ms?} = _normalize_events, 실브라우저 왕복 확인)* | 7/7 |
-| ⬜ | 온보딩/식별 연동 확인 | 팝업 동의→익명 UUID 발급→세션 userId 반영 | 7/8 |
+| ✅ | 온보딩/식별 연동 확인 | 팝업 동의→익명 UUID 발급→세션 userId 반영 *(7/8: 토글=동의 게이트, getUserId 안정 UUID, userId→user_id 스레딩·재사용 시 동일 식별·누락 시 anonymous 폴백 검증. 크로스세션 프로필 누적은 영속 저장소(3번 DB) 몫)* | 7/8 |
 
 ### (C) 협업 대기 (타 역할, 1번은 계약 제공)
 
