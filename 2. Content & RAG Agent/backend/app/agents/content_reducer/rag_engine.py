@@ -545,7 +545,7 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
             "part": "word",
             "sort": "dict",
             "start": 1,
-            "num": 5
+            "num": 10
         }
         encoded_params = urllib.parse.urlencode(query_params)
         url = f"https://opendict.korean.go.kr/api/search?{encoded_params}"
@@ -576,6 +576,58 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
                 }
     except Exception as e:
         print(f"[rag_engine] 우리말샘 API 호출 실패: {e}")
+        raise e
+
+    return None
+
+
+def _query_stdict_api(word: str, context: str | None = None) -> dict | None:
+    """
+    국립국어원 표준국어대사전 오픈 API를 호출하여 단어 정의를 조회한다.
+    """
+    import urllib.request
+    import urllib.parse
+
+    api_key = os.getenv("STDICT_API_KEY", "") or os.getenv("STANDARD_DICTIONARY_API_KEY", "")
+    if not api_key:
+        return None
+
+    try:
+        query_params = {
+            "key": api_key,
+            "q": word,
+            "req_type": "json",
+            "start": 1,
+            "num": 10
+        }
+        encoded_params = urllib.parse.urlencode(query_params)
+        url = f"https://stdict.korean.go.kr/api/search.do?{encoded_params}"
+
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res_content = response.read().decode("utf-8")
+            data = json.loads(res_content)
+
+        items = data.get("channel", {}).get("item", [])
+        if isinstance(items, dict):
+            items = [items]
+        if items:
+            best_item = items[0]
+            if context and len(items) > 1:
+                best_item = _disambiguate_homonyms_with_llm(word, items, context)
+
+            definition = _extract_definition_from_item(best_item)
+            # HTML 태그 제거
+            definition = re.sub(r"<[^>]*>", "", definition).strip()
+
+            if definition:
+                return {
+                    "term": best_item.get("word", word).replace("^", "").replace("_", ""),
+                    "definition": definition,
+                    "source": "표준국어대사전"
+                }
+    except Exception as e:
+        print(f"[rag_engine] 표준국어대사전 API 호출 실패: {e}")
         raise e
 
     return None
@@ -707,7 +759,31 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
                     _meta={"tried": tried, "errors": errors}
                 )
 
-    # 2. 우리말샘 오픈 API 조회 시도
+    # 2. 표준국어대사전 오픈 API 조회 시도
+    api_key_stdict = os.getenv("STDICT_API_KEY", "") or os.getenv("STANDARD_DICTIONARY_API_KEY", "")
+    if api_key_stdict:
+        tried.append("stdict")
+    else:
+        tried.append("stdict_skipped_no_key")
+
+    if api_key_stdict:
+        for w in reversed(word_candidates):
+            try:
+                api_res = _query_stdict_api(w, context)
+                if api_res:
+                    return TermDict(
+                        term=api_res["term"],
+                        definition=api_res["definition"],
+                        source=api_res["source"],
+                        faithfulness_score=1.0,
+                        chunk_id="",
+                        _meta={"tried": tried, "errors": errors}
+                    )
+            except Exception as e:
+                errors["stdict"] = str(e)
+                print(f"[rag_engine] 표준국어대사전 API 검색 중 에러: {e}")
+
+    # 3. 우리말샘 오픈 API 조회 시도
     api_key_woorimal = os.getenv("WOORIMAL_API_KEY", "") or os.getenv("DICTIONARY_API_KEY", "")
     if api_key_woorimal:
         tried.append("woorimal")
