@@ -68,7 +68,7 @@ pip install -r requirements.txt
 # 환경 변수 설정
 copy .env.example .env
 # .env 파일을 열어 아래 키를 입력합니다:
-# - GEMINI_API_KEY: Gemini API 키 (비용 0원 무료 티어 활용)
+# - GEMINI_API_KEY: SnowChat API 키 (sookmyung.factchat.bot 개발자 대시보드 발급키)
 # - WOORIMAL_API_KEY (선택): 국립국어원 우리말샘 오픈 API 키. 설정 시 hover 단어가 로컬 사전에 없을 경우 우리말샘 API에서 실시간으로 단어 정의를 자동 조회합니다.
 ```
 
@@ -91,7 +91,7 @@ python -m backend.app.agents.content_reducer.agent
 ## 테스트 실행
 
 ```bash
-# 전체 테스트 (총 91개 테스트)
+# 전체 테스트 (총 94개 테스트)
 python -m pytest backend/app/tests/ -v
 
 # 단위 테스트만
@@ -116,7 +116,8 @@ python -m pytest backend/app/tests/test_content_e2e.py -v
 | **환각 차단** | 모든 용어풀이는 신뢰 출처 데이터 기반 (직접 인용 방식, faithfulness_score=1.0) |
 | **Fallback 보장** | 각 서브모듈 실패 시 기본값 반환으로 데모 유지 |
 | **chunk_id 안정성** | 같은 문서는 항상 같은 chunk_id 생성 |
-| **비용 0원 원칙** | Google AI Studio의 무료 `gemini-2.0-flash` 모델을 사용하여 요금 차단 |
+| **비용 0원 원칙** | 교내 생성형 AI 플랫폼 SnowChat의 `gemini-2.5-flash` 게이트웨이 모델을 활용하여 요금 차단 |
+
 
 ---
 

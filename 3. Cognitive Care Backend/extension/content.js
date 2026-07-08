@@ -35,11 +35,10 @@ function flushEvents() {
   const toSend = [...eventsQueue];
   eventsQueue = [];
   
-  chrome.runtime.sendMessage({ type: "FLUSH_EVENTS", events: toSend }, (res) => {
-    if (res && res.intervention && res.intervention.payload) {
-      handleIntervention(res.intervention);
-    }
-  });
+  // fire-and-forget: 응답 콜백 없이 전송 → "message channel closed" 에러 방지
+  try {
+    chrome.runtime.sendMessage({ type: "FLUSH_EVENTS", events: toSend });
+  } catch (err) { /* 콘텍스트 상실 시 무시 */ }
 }
 
 function handleIntervention(command) {
@@ -84,7 +83,7 @@ setInterval(() => {
 
 // 4. RAG Term Lookup (Hover/Double Click/Drag)
 function handleTextSelection(e) {
-  if (!isSessionActive) return;
+  // 세션 없어도 단어 조회는 허용 (케어 시작 전에도 동작)
   
   // Ignore clicks inside the tooltip
   if (currentTooltip && currentTooltip.contains(e.target)) return;
@@ -96,14 +95,45 @@ function handleTextSelection(e) {
     
     if (selectedText.length > 0 && selectedText.length < 30) {
       console.log("AI Literacy Care - Text selected:", selectedText);
-      // Lookup term
-      chrome.runtime.sendMessage({ type: "LOOKUP_TERM", word: selectedText }, (res) => {
-        if (res && res.success && res.term && res.term.source !== 'not_found') {
-          showTooltip(e.pageX, e.pageY, res.term);
-        } else {
-          showTooltip(e.pageX, e.pageY, { term: selectedText, definition: "RAG 사전에서 뜻을 찾지 못했습니다.", source: "" });
+      
+      // 1번 RAG 팀 context 필드: 드래그한 단어 주변 문장을 추출해서 함께 전송 (LLM 동음이의어 구분 정확도 향상)
+      let context = null;
+      try {
+        const anchorNode = selection.anchorNode;
+        if (anchorNode && anchorNode.textContent) {
+          // 해당 텍스트 노드의 전체 텍스트에서 선택된 단어가 속한 문장을 추출
+          const fullText = anchorNode.textContent;
+          // 단어 위치 찾기
+          const wordIndex = fullText.indexOf(selectedText);
+          if (wordIndex !== -1) {
+            // 앞뒤 100자 정도를 context로 활용
+            const start = Math.max(0, wordIndex - 60);
+            const end = Math.min(fullText.length, wordIndex + selectedText.length + 60);
+            context = fullText.slice(start, end).trim();
+          }
         }
-      });
+      } catch (e) {
+        // context 추출 실패 시 조용히 무시
+      }
+      
+      // Lookup term
+      try {
+        chrome.runtime.sendMessage({ type: "LOOKUP_TERM", word: selectedText, context }, (res) => {
+          if (chrome.runtime.lastError) return;
+          if (res && res.success && res.term && res.term.source !== 'not_found' && res.term.definition) {
+            showTooltip(e.pageX, e.pageY, res.term);
+          } else if (res && !res.success) {
+            // 네트워크 오류 시 간단한 안내 표시
+            showTooltip(e.pageX, e.pageY, {
+              term: selectedText,
+              definition: "현재 서버에 연결할 수 없습니다. 백엔드 서버가 켜져 있는지 확인해주세요.",
+              source: "연결 오류"
+            });
+          }
+        });
+      } catch (err) {
+        console.log("[AI Literacy Care] 페이지를 F5로 새로고침하면 다시 사용할 수 있습니다.");
+      }
     }
   }, 50);
 }
@@ -120,8 +150,18 @@ function showTooltip(x, y, termData) {
   
   const tooltip = document.createElement('div');
   tooltip.className = 'rag-tooltip';
-  tooltip.style.left = `${x + 10}px`;
-  tooltip.style.top = `${y + 10}px`;
+
+  // 화면 오른쪽/아래 경계 감지 — 툴팁이 잘리지 않도록
+  const tooltipWidth = 290;
+  const tooltipLeft = (x + 10 + tooltipWidth > window.innerWidth)
+    ? Math.max(10, x - tooltipWidth - 10)
+    : x + 10;
+  const tooltipTop = (y + 10 + 150 > window.scrollY + window.innerHeight)
+    ? y - 150
+    : y + 10;
+
+  tooltip.style.left = `${tooltipLeft}px`;
+  tooltip.style.top = `${tooltipTop}px`;
   
   tooltip.innerHTML = `
     <span class="rag-tooltip-close">×</span>

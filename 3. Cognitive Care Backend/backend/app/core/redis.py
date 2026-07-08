@@ -30,6 +30,9 @@ class InMemoryRedisClient:
             return 1
         return 0
 
+    async def expire(self, key: str, seconds: int):
+        return True
+
     async def aclose(self):
         pass
 

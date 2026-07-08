@@ -16,7 +16,7 @@ window.ALC_Overlay = (() => {
       root = host.attachShadow({ mode: "open" });
       root.innerHTML = `
         <style>
-          .toast{position:fixed;right:20px;bottom:20px;max-width:280px;
+          .toast{position:fixed;right:20px;bottom:64px;max-width:280px;
             padding:14px 16px;border-radius:14px;background:#1a1a2e;color:#fff;
             font:14px/1.5 "Pretendard",-apple-system,"Segoe UI",sans-serif;
             box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:2147483647;
@@ -38,7 +38,8 @@ window.ALC_Overlay = (() => {
       const el = document.createElement("div");
       el.className = `toast ${kind}`;
       el.innerHTML = `<span class="tag">${TAGS[kind] || "케어"}</span><div>${message}</div>`;
-      root.querySelectorAll(".toast,.badge").forEach((n) => n.remove());
+      // 토스트끼리만 교체하고 집중도 배지(.badge)는 유지 — 배지 위에 겹쳐 쌓인다.
+      root.querySelectorAll(".toast").forEach((n) => n.remove());
       root.appendChild(el);
       requestAnimationFrame(() => el.classList.add("show"));
       setTimeout(() => el.remove(), 5000);

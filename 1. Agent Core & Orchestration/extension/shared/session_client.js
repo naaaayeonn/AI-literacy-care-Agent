@@ -72,6 +72,8 @@ window.ALC_Session = (() => {
     // 개입 명령(to_intervention_command) → 오버레이
     function render(cmd) {
       const p = (cmd && cmd.payload) || {};
+      // 집중도 배지는 개입 여부와 무관하게 응답마다 항상 갱신(모든 payload에 focusScore 포함).
+      if (p.focusScore != null) overlay.badge(p.focusScore);
       switch (cmd && cmd.type) {
         case "nudge":
           overlay.toast(p.nudgeMessage || "잠시 멈추고 다시 읽어볼까요?", "nudge");
@@ -82,9 +84,7 @@ window.ALC_Session = (() => {
         case "quiz":
           overlay.toast(p.nudgeMessage || "방금 읽은 내용을 퀴즈로 확인해보세요!", "quiz");
           break;
-        case "score_update":
-          overlay.badge(p.focusScore);
-          break;
+        // score_update: 배지는 위에서 이미 갱신됨(별도 처리 불필요).
       }
     }
 

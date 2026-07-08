@@ -224,18 +224,30 @@ export const api = {
     return { correct: true, explanation: '정답입니다! (mock 서버 오프라인)' };
   },
 
-  /** RAG 기반 어려운 용어/문장 AI 설명 조회 (2번 Content Reducer 연동) */
-  getTermDefinition: async (sessionId: string, term: string): Promise<{ explanation: string }> => {
-    console.log('[API] getTermDefinition Request:', { sessionId, term });
+  /** RAG 기반 어려운 용어/문장 AI 설명 조회 (1번 RAG 팀 고도화 연동) */
+  getTermDefinition: async (sessionId: string, term: string, context?: string): Promise<{ explanation: string; source?: string }> => {
+    console.log('[API] getTermDefinition Request:', { sessionId, term, context: context?.slice(0, 50) });
     try {
-      // 백엔드 API 명세에 맞춤: GET /api/terms/lookup?word={term}
-      const res = await fetch(`${BASE_URL}/api/terms/lookup?word=${encodeURIComponent(term)}&sessionId=${encodeURIComponent(sessionId)}`, {
-        method: 'GET',
+      // 1번 팀 RAG 고도화: POST /api/terms/lookup + context 필드 전송
+      const res = await fetch(`${BASE_URL}/api/terms/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          word: term,
+          sessionId,
+          context: context || null,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
-        // RAG 엔진이 응답으로 { term, definition, source, faithfulnessScore } 를 반환함. 프론트엔드는 explanation 필드 기대.
-        return { explanation: data.definition || `[AI 주석] RAG 사전에서 '${term}'의 뜻을 찾지 못했습니다.` };
+        // source가 not_found이면 조용히 null 반환 (프론트에서 무시)
+        if (data.source === 'not_found' || !data.definition) {
+          return { explanation: '', source: 'not_found' };
+        }
+        return {
+          explanation: data.definition,
+          source: data.source,
+        };
       }
     } catch (err) {
       console.error('[API] Failed to getTermDefinition from server, falling back to mock:', err);

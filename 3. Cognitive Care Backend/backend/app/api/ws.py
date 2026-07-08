@@ -26,6 +26,8 @@ def to_reading_event(front_event: dict) -> dict:
         ev["position"] = p["progress"] / 100
     if p.get("dwellMs") is not None:
         ev["duration_ms"] = int(p["dwellMs"])
+    if p.get("scrollVelocity") is not None:
+        ev["velocity"] = p["scrollVelocity"]
     return ev
 
 

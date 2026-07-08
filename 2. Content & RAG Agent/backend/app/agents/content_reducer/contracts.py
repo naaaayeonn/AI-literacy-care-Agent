@@ -22,6 +22,8 @@ class TermDict(TypedDict):
     source: str                        # 출처 (예: "표준국어대사전")
     faithfulness_score: NotRequired[float]  # 0~1, 높을수록 출처에 충실
     chunk_id: str                      # 해당 용어가 등장한 chunk
+    _meta: NotRequired[dict]           # 디버그용 메타데이터 (tried, errors 등)
+
 
 
 # ---------------------------------------------------------------------------

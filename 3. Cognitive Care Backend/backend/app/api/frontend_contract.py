@@ -130,7 +130,7 @@ def _completion_rate(state: ReadingSessionState) -> int:
     ]
     if not positions:
         return 0
-    return int(round(max(positions) * 100))
+    return min(100, max(0, int(round(max(positions) * 100))))
 
 
 def _session_duration_ms(state: ReadingSessionState) -> int:

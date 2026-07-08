@@ -1,0 +1,5 @@
+{
+    "raw_text": "RNN은 순차 데이터를 처리하는 데 적합하다.",
+    "expected_quiz": "RNN은 어떤 데이터를 처리하는 데 적합한가?",
+    "expected_answer": "순차 데이터"
+}

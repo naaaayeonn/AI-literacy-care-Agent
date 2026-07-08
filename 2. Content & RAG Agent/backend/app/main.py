@@ -191,7 +191,8 @@ def start_session(req: SessionStartRequestModel):
                 "faithfulnessScore": t.get("faithfulness_score", 1.0),
                 "faithfulness_score": t.get("faithfulness_score", 1.0),
                 "chunkId": t["chunk_id"],
-                "chunk_id": t["chunk_id"]
+                "chunk_id": t["chunk_id"],
+                "_meta": t.get("_meta", {})
             }
 
         def map_chunk(c):
@@ -239,7 +240,9 @@ def lookup_term_api(req: TermLookupRequestModel):
             "faithfulnessScore": t.get("faithfulness_score", 0.0),
             "faithfulness_score": t.get("faithfulness_score", 0.0),
             "chunkId": t.get("chunk_id", ""),
-            "chunk_id": t.get("chunk_id", "")
+            "chunk_id": t.get("chunk_id", ""),
+            "_meta": t.get("_meta", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lookup failed: {str(e)}")
+

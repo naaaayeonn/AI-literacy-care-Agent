@@ -1,0 +1,5 @@
+{
+    "raw_text": "CNN은 이미지 처리 분야에서 많이 사용된다.",
+    "expected_quiz": "CNN은 어느 분야에서 많이 사용되는가?",
+    "expected_answer": "이미지 처리"
+}

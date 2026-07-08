@@ -22,12 +22,10 @@ def calculate_focus_score(events: List[Dict[str, Any]]) -> float:
             penalty += 20.0 + (duration / 1000.0) * 2.0
             
         elif etype == "scroll":
-            duration = event.get("duration_ms")
-            if duration is None:
-                duration = 1000
-            # 빠른 스크롤 (300ms 미만) 1회당 5점 감점
-            if duration < 300:
-                penalty += 5.0
+            velocity = event.get("velocity", 0)
+            # 빠른 스크롤 (예: 2000 px/s 이상) 1회당 0.5점 감점 (스크롤 이벤트가 자주 발생하므로 감점폭을 낮춤)
+            if velocity > 2000:
+                penalty += 0.5
                 
         elif etype in ("pause", "dwell"):
             duration = event.get("duration_ms")

@@ -85,15 +85,14 @@ class TestGenerateQuiz:
         assert quiz["question"] == fb["question"]
         assert quiz["correct_option"] == fb["correct_option"]
 
-    @patch("backend.app.agents.content_reducer.quiz_generator._get_client")
-    def test_generate_quiz_api_success(self, mock_get_client):
+    @patch("backend.app.agents.content_reducer.quiz_generator._call_llm_via_snowchat")
+    @patch("backend.app.agents.content_reducer.quiz_generator.is_snowchat_available")
+    def test_generate_quiz_api_success(self, mock_available, mock_call):
         """API 호출 성공 및 유효한 응답 수신 시의 동작 검증."""
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_available.return_value = True
 
-        # Mock response from Gemini
-        mock_response = MagicMock()
-        mock_response.text = """
+        # Mock response from SnowChat
+        mock_call.return_value = """
         {
           "question": "RAG의 핵심 목적은 무엇인가요?",
           "options": [
@@ -106,7 +105,6 @@ class TestGenerateQuiz:
           "explanation": "RAG는 외부 데이터베이스 검색을 결합해 AI의 환각을 줄여줍니다."
         }
         """
-        mock_client.models.generate_content.return_value = mock_response
 
         # 환경 모드를 real로 강제
         with patch.dict("os.environ", {"CONTENT_REDUCER_MODE": "real", "DEMO_MODE": "false"}):
@@ -116,15 +114,14 @@ class TestGenerateQuiz:
             assert quiz["correct_option"] == 2
             assert "환각" in quiz["explanation"]
 
-    @patch("backend.app.agents.content_reducer.quiz_generator._get_client")
-    def test_generate_quiz_api_validation_failure_fallback(self, mock_get_client):
+    @patch("backend.app.agents.content_reducer.quiz_generator._call_llm_via_snowchat")
+    @patch("backend.app.agents.content_reducer.quiz_generator.is_snowchat_available")
+    def test_generate_quiz_api_validation_failure_fallback(self, mock_available, mock_call):
         """API 호출은 성공했으나 반환된 JSON이 규격에 맞지 않을 때 fallback_quiz가 적용되는지 검증."""
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_available.return_value = True
 
         # options 개수가 2개뿐인 규격 미달 응답
-        mock_response = MagicMock()
-        mock_response.text = """
+        mock_call.return_value = """
         {
           "question": "문제",
           "options": ["1. A", "2. B"],
@@ -132,7 +129,6 @@ class TestGenerateQuiz:
           "explanation": "설명"
         }
         """
-        mock_client.models.generate_content.return_value = mock_response
 
         with patch.dict("os.environ", {"CONTENT_REDUCER_MODE": "real", "DEMO_MODE": "false"}):
             quiz = generate_quiz("chunk_04", "본문 데이터")
@@ -140,3 +136,4 @@ class TestGenerateQuiz:
             assert quiz["question"] == fb["question"]
             assert quiz["correct_option"] == fb["correct_option"]
             assert quiz["chunk_id"] == "chunk_04"
+

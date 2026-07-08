@@ -35,7 +35,7 @@ def test_decide_intervention_fills_frontend_command_fields():
     assert result["intervention"] == {
         "level": "medium",
         "type": "nudge",
-        "message": "Show a short nudge and ask the user to reread the key sentence.",
+        "message": "잠깐 멈추고 방금 읽은 핵심 문장을 다시 읽어볼까요?",
         "reason": "focus_score=45.0",
         "target_chunk_id": "chunk_02",
     }

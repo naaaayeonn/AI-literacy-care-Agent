@@ -61,7 +61,9 @@ AI 리터러시 케어 에이전트
 | --- | --- | --- | --- |
 | Frontend | React 또는 Next.js, TypeScript | 읽기 화면, Floating Panel, 성장 그래프, 퀴즈 UI를 빠르게 구현하기 좋음 | 직접 구현 담당 아님. 단, 프론트가 받을 응답 JSON 형식 정의 |
 | Backend API | FastAPI, Python 3.11 | 비동기 API, WebSocket, 에이전트 호출 서버를 구현하기 적합함 | 오케스트레이터 엔드포인트 설계 협의 및 호출 계약 정의 |
-| Realtime | WebSocket | 읽기 행동 데이터가 실시간으로 들어오기 때문에 REST만으로는 부족함 | 행동 이벤트가 어떤 state 필드로 들어오는지 정의 |
+| Realtime | REST (event-driven), WebSocket(후속) | 개입이 모두 행동 반응형이라 서버 push가 불필요하고, 이벤트 발생 시 배치 flush POST로 개입을 동기 반환하면 충분함 (ADR-001) | 행동 이벤트가 어떤 state 필드로 들어오는지 정의, 전송 방식 결정 |
+| Extension | Chrome Manifest V3, declarativeNetRequest, Shadow DOM | 파일 업로드 없이 크롬에서 읽는 모든 글(웹·PDF)에 개입하려면 확장이 필요함. 페이지 CSS 충돌 방지를 위해 오버레이는 Shadow DOM 격리 | 확장↔백엔드 계약, 세션 수명, page-ingestion 계약 정의 |
+| PDF Rendering | pdf.js (Mozilla, Apache-2.0 번들) | 크롬 기본 PDF뷰어(PDFium)는 글자·좌표 접근이 불가하므로, pdf.js로 DOM(canvas+textLayer)으로 되돌려 웹과 동일 측정 | PDF 추출 content[]를 기존 세션 계약에 연결 |
 | Agent Orchestration | LangGraph, StateGraph | 여러 에이전트의 상태 기반 전이를 명확하게 표현할 수 있음 | 직접 책임. 그래프 노드, 엣지, 조건부 라우팅 구현 |
 | LLM Routing | Claude / GPT 계열 / 경량 모델 | 고난도 재구성은 고성능 모델, 단순 처리와 점수 계산은 경량 로직으로 분리 | 어떤 작업이 LLM 호출 대상인지, 어떤 작업이 룰 기반인지 기준 정의 |
 | State Schema | Python TypedDict 또는 Pydantic | 에이전트 간 입출력 구조를 명확히 고정하고 검증 가능 | 직접 책임. Shared State 스키마 작성 |
@@ -72,6 +74,10 @@ AI 리터러시 케어 에이전트
 | Evaluation | Ragas, Promptfoo, LangSmith | 생성 결과 품질, 회귀 테스트, 추적 로그를 검증하기 위함 | QA 담당과 연동할 trace/log 필드 정의 |
 | Testing | pytest | score 계산, state 전이, 조건부 라우팅은 자동 테스트가 필요함 | 직접 책임. 코어 로직 단위 테스트 작성 |
 
+> **입력원 독립 원칙 (핵심):** 오케스트레이터는 이벤트의 출처(웹앱/크롬 확장/PDF 뷰어)를 가리지 않는다.
+> 입력은 `reading_events`(scroll/pause/blur/focus) + 글 텍스트, 출력은 개입 명령과 세션 결과뿐이다.
+> 따라서 크롬 확장 추가는 **코어 교체가 아니라 "새 입력원 추가"** 이며, 기존 계약·어댑터를 그대로 재사용한다. (상세 §12)
+
 ---
 
 ## 3. 시스템 아키텍처 다이어그램 (Architecture Diagram)
@@ -80,8 +86,11 @@ AI 리터러시 케어 에이전트
 
 ```mermaid
 graph TD
-    User[User Reading Web Text] --> Frontend[Frontend Reading UI]
-    Frontend -->|reading events / quiz answers| Backend[FastAPI Backend]
+    User[User Reading: Web page / PDF] --> Ext[Chrome Extension MV3]
+    User --> WebUI[Web Reading UI - demo fallback]
+    Ext -->|"content[] + reading events (REST)"| Backend[FastAPI Backend]
+    WebUI -->|reading events / quiz answers| Backend
+    PDFViewer[pdf.js Self Viewer] --> Ext
     Backend --> Orchestrator[Main Orchestrator Agent]
 
     Orchestrator --> State[Shared ReadingSessionState]
@@ -187,7 +196,23 @@ ai-literacy-care-agent/
     SHARED_STATE.md
     SCORE_FORMULA.md
     INTEGRATION_CHECKLIST.md
+    EXTENSION_DESIGN.md            # 확장 설계 정본
+    EXTENSION_INTEGRATION_FIXES.md # 확장↔백엔드 정합 + ADR 정본
+  extension/                        # 크롬 확장 (Manifest V3)
+    manifest.json                   # declarativeNetRequest + web_accessible_resources
+    popup/                          # on/off 토글 · 온보딩(동의) · 파일 열기
+    background/service_worker.js    # 세션 수명 · PDF 리다이렉트 동적 규칙
+    content/content_script.js       # 웹페이지 주입(shared 어댑터)
+    pdf/                            # pdf.js 자체 뷰어 (viewer.html/js/css)
+    vendor/pdfjs/                   # pdf.mjs · pdf.worker.mjs (Apache-2.0 번들)
+    shared/                         # 웹·PDF 공용
+      tracker.js                    # 읽기행동 이벤트 캡처(정규화 스키마)
+      overlay.js                    # Shadow DOM 오버레이(넛지·퀴즈·툴팁)
+      session_client.js             # 세션 수명 + REST 배치 flush 전송
 ```
+
+> 확장 백엔드 인입은 기존 오케스트레이터를 재사용하는 **alias 엔드포인트**로 처리한다:
+> `backend/app/api/extension_session.py` — `POST /api/session/start`(content[]) · `POST /api/session/{id}/events`(REST 개입) · `GET /api/session/{id}/result`.
 
 ### `backend/app/main.py`
 
@@ -1285,9 +1310,185 @@ ChatGPT는 텍스트를 처리한다.
 - [ ] 5번 QA가 trace와 generated output을 받을 수 있는가?
 - [ ] M1 데모 흐름이 반복 실행되는가?
 
+### 확장 체크리스트 (Chrome Extension / PDF)
+
+- [ ] 확장 인입 alias(`/api/session/start`·`/events`·`/result`)가 코어를 재사용하는가?
+- [ ] 웹·PDF가 동일 `content[]` + 동일 tracker/overlay로 처리되는가?
+- [ ] PDF 링크가 pdf.js 뷰어로 리다이렉트되고 텍스트가 추출되는가?
+- [ ] 익명 `userId`(로그인 없음)와 `consent` 상태가 계약에 정합하는가?
+- [ ] 전송이 REST(event-driven, ADR-001)로 동작하는가?
+- [ ] 확장을 크롬에 로드해 웹/PDF 왕복 수동 E2E가 통과하는가?
+
 ---
 
-## 12. 결론
+## 12. 확장 아키텍처 — 크롬 확장 & PDF(pdf.js)
+
+> 계획 외 **추가하기로 한 기능**의 상세 설계. 정본은 `docs/EXTENSION_DESIGN.md`,
+> 계약/ADR 정본은 `docs/EXTENSION_INTEGRATION_FIXES.md`. 이 절은 1번 역할 관점에서
+> "코어에 어떻게 붙는가"를 아키텍처 문서에 통합한 것이다.
+
+### 12.1 왜 확장인가 — 코어는 거의 안 바뀐다
+
+기존 데모는 "원문을 붙여넣거나 업로드"하는 방식이었다. 이는 ChatGPT에 텍스트를 넣는 것과
+사용 경험이 비슷해 차별화가 약하다. **크롬 확장**은 파일 업로드 없이 사용자가 **평소 읽던 웹/PDF**
+위에서 그대로 측정·개입한다. on/off 토글로 켜두면 백그라운드에서 상시 동작한다.
+
+핵심은 §2의 **입력원 독립 원칙**이다. 오케스트레이터 입장에서 이벤트가 웹앱에서 오든 확장에서
+오든 PDF 뷰어에서 오든 **동일한 `reading_events` + 글 텍스트**다. 따라서 이번 확장은:
+
+- **코어(state/graph/routing/score) 변경 없음.**
+- 신규 작업은 "새 입력원(확장) + 공용 트래커/오버레이 + 뷰어 UI + 인입 alias 엔드포인트"뿐.
+
+### 12.2 컴포넌트 관계
+
+| 컴포넌트 | 위치 | 역할 |
+| --- | --- | --- |
+| 크롬 확장 | `extension/` | **주력** — 실제 읽기 측정 + 라이브 넛지 오버레이 (웹 + PDF) |
+| 웹 대시보드 | 프론트(4번) | **공용** — 점수/성장/배지 확인 (성장 그래프 = 데모 핵심 화면) |
+| 웹 읽기 화면 | 프론트(4번) | **무설치 폴백** — 심사위원이 확장 미설치 시 시연용 |
+
+읽기 UX를 양쪽에서 중복 유지하지 않는다: **확장=주력 / 웹읽기=데모 폴백 / 대시보드=공용.**
+
+### 12.3 확장 MV3 아키텍처
+
+```text
+[크롬 확장 (Manifest V3)]
+  ├─ popup/          on/off 토글 · 온보딩(개인정보 동의) · 로컬 문서 열기
+  ├─ background/     service worker: 세션 수명 · PDF 리다이렉트 동적 규칙
+  ├─ content/        웹페이지 주입 (shared 어댑터, 얇은 래퍼)
+  ├─ pdf/            pdf.js 자체 뷰어 (viewer.html/js/css)
+  ├─ vendor/pdfjs/   pdf.mjs · pdf.worker.mjs (Apache-2.0 번들, 외부 CDN 불필요)
+  └─ shared/         웹·PDF 공용(중복 제거)
+       ├─ tracker.js        읽기행동 이벤트 캡처(전송·추출 무관, 정규화 스키마 방출)
+       ├─ overlay.js        Shadow DOM 오버레이(넛지·배지·퀴즈·툴팁)
+       └─ session_client.js 세션 수명 + REST 배치 flush 전송(ADR-001)
+```
+
+**MV3 현실:** service worker는 상시 떠 있는 데몬이 아니라 **이벤트로 자고 깬다.** 탭/네비게이션
+이벤트마다 깨어나 모니터링하면 체감은 "항상 켜짐"이며, 상태는 `chrome.storage`에 두므로 진짜
+24/7 프로세스는 불필요하다. 오버레이는 Shadow DOM으로 격리해 페이지 CSS와 충돌하지 않는다.
+
+### 12.4 확장 ↔ 백엔드 계약 (기존 계약 재사용)
+
+전송 방식은 **REST(event-driven)로 확정**(ADR-001). WebSocket이 아니라, 이벤트가 발생할 때마다
+배치로 flush POST하고 **응답에 실린 개입을 렌더**한다(고정 주기 폴링이 아님). 신규 계약을
+만들지 않고, 오케스트레이터를 재사용하는 alias 엔드포인트로 처리한다.
+
+```text
+POST /api/session/start          content[] 로 세션 시작 (웹=Readability / PDF=pdf.js)
+                                 → 2번 Content Reducer → create_initial_state → session_id
+POST /api/session/{id}/events    읽기행동 배치 → to_intervention_command → 응답 개입 렌더
+GET  /api/session/{id}/result    전체 오케스트레이터 실행 → to_session_result (score/배지/시계열)
+```
+
+세션 시작 요청 예시(확장):
+
+```jsonc
+// POST /api/session/start
+{
+  "userId": "u_anon_uuid",                         // 익명 기기 UUID (로그인 없음)
+  "source": { "url": "https://...", "title": "...", "type": "web" }, // 또는 type: "pdf"
+  "content": ["문단1", "문단2", "..."]              // Readability 또는 pdf.js 추출 본문
+}
+// 응답(camelCase): { sessionId, article, ... }
+```
+
+> 백엔드 관점에선 **"웹이든 PDF든 `content[]` 받으면 끝"** — 신규 계약 불필요.
+> 응답 어댑터 `to_intervention_command`(개입)·`to_session_result`(결과)는 전송 방식과 무관하므로,
+> 후속에 WebSocket으로 전환하더라도 저비용이다.
+
+### 12.5 PDF 지원 — pdf.js 자체 뷰어
+
+**문제:** 크롬 기본 PDF뷰어는 PDFium(네이티브 플러그인)이 페이지를 "그림처럼" 그려서
+확장이 **글자·좌표·스크롤에 접근할 수 없다** = 스크롤 속도·퀴즈·단어 뜻 전부 불가.
+
+**해결:** pdf.js(Mozilla)로 PDF를 **JavaScript로 다시 그려 DOM으로 되돌린다.** 페이지를
+`<canvas>`로 그리고 그 위에 **단어마다 `<span>` 텍스트 레이어**를 좌표 맞춰 깐다 → PDF가
+"일반 웹페이지"가 되어 웹과 **똑같은** 트래커/오버레이를 재사용한다. 사용자 경험은 기본 뷰어와
+동일하다(링크 클릭 → 열림, 업로드 없음). 바뀌는 건 "누가 렌더하느냐"뿐이다.
+
+```text
+PDF 링크 클릭 (https://….pdf 또는 로컬 파일)
+  └ declarativeNetRequest 규칙이 main_frame 요청을 우리 뷰어로 redirect
+      → chrome-extension://<id>/pdf/viewer.html?file=<원본 URL>
+          ├ pdf.js가 원본을 fetch → 페이지별 canvas + textLayer(<span>) 렌더
+          ├ getTextContent()로 본문 추출 → content[] 로 POST /session/start
+          ├ tracker(공용): 스크롤 속도·체류·blur/focus → 백엔드
+          ├ overlay(공용): 넛지·퀴즈·단어뜻 툴팁
+          └ 단어 hover → textLayer span에서 단어 추출 → 용어풀이 요청 → 툴팁
+```
+
+- **텍스트 추출:** pdf.js `page.getTextContent()` → y좌표로 줄→문단 재구성, 하이픈 줄바꿈(`-\n`)
+  병합, 머리말/꼬리말(반복 라인) 제거 후 `content[]`로 정규화(2번 담당).
+- **집중 신호:** 뷰어 스크롤 컨테이너가 우리 DOM이므로 `scroll` 이벤트가 정상 발생 → 속도 = Δ위치/Δ시간.
+  진행률 = 현재 페이지/총 페이지. blur/focus/문단 체류(`IntersectionObserver`)는 웹과 동일 tracker 재사용.
+- **로컬 PDF:** 파일 피커 → `ArrayBuffer` → pdf.js 렌더. **서버 업로드·저장 없음.**
+- **한계:** 스캔(이미지) PDF는 글자 레이어가 없어 MVP 제외. OCR(Tesseract.js·무료)은 후속.
+
+### 12.6 세션 수명 (on/off + 백그라운드)
+
+```text
+[확장 off] → 아무 동작 안 함
+[확장 on]  → chrome.storage.local.enabled = true
+   페이지 로드 → content script 주입 → Readability "읽을 만한 글" 판정?
+      └ 예 → 사용자 N초 이상 체류/스크롤 → 세션 시작(POST start) + 이벤트 스트리밍
+              실시간 focus 하락 → 넛지 오버레이
+              탭 이탈/닫기/visibility hidden 지속 → 세션 종료 → GET result → 대시보드 기록
+```
+
+### 12.7 온보딩 & 사용자 식별 (비용 0 · PII 0)
+
+| 항목 | 결정 |
+| --- | --- |
+| 사용자 식별 | 설치 시 **익명 UUID**(`crypto.randomUUID()` → `chrome.storage.local.userId`). **로그인·회원가입 없음.** 백엔드 `userId`로 사용(기본값 `anonymous`) |
+| 문서 열기 | 로컬 PDF를 파일 피커 → pdf.js 뷰어. **서버 저장 없음**(ArrayBuffer 로컬 처리) |
+| 온보딩 | 확장 팝업 최초 1회: 개인정보 동의 + ON/OFF(기본 OFF). 동의 전에는 **아무 것도 수집 안 함** |
+| 정직 고지 | "안 하는 것" 명시 — 화면 상시 감시 아님(ON+읽을만한 글일 때만) · EEG/카메라 없음 · **크롬 밖 앱 안 봄** |
+
+이 "안 하는 것" 고지는 심사 방어(과장 금지 원칙)와 직결된다. `consent`/`userId` 상태 스키마와
+백엔드 `userId` 계약 정합은 **1번 담당**, 동의 화면·토글·파일 피커 UI는 4번 담당이다.
+
+### 12.8 설계 결정 기록 (ADR)
+
+- **ADR-001 (REST 전송 확정):** 확장↔백엔드 이벤트/개입 왕복은 REST(event-driven). 개입이 전부
+  행동 반응형이라 서버 push 불요 + 백엔드 REST가 이미 구현·테스트 완료 → 신규작업 0, 비용 0.
+  WebSocket은 후속(계약이 전송 무관이라 저비용 전환).
+- **ADR-002 (익명 UUID·로컬 문서·팝업 온보딩):** 마찰 0·비용 0·PII 없음. 익명 ID로도 프로필 누적
+  성립. 구글 OAuth는 기기간 동기화 필요 시 후속(이메일/비번 자체구현·서버 업로드 보관은 기각).
+
+### 12.9 비용 0 원칙 & 라이선스
+
+**새로 과금되는 요소를 추가하지 않는다.** 외부 유료 서비스·유료 호스팅·유료 API 키 불가.
+
+| 요소 | 무엇 | 라이선스/비용 |
+| --- | --- | --- |
+| PDF 렌더 | pdf.js (Mozilla) | Apache-2.0 · **무료** · 확장에 번들(자체 호스팅) |
+| 가로채기·트래킹·오버레이 | 브라우저 내장 API(declarativeNetRequest 등) | 비용 0 |
+| 단어 뜻·퀴즈 생성 | 기존 백엔드 에이전트 경로 재사용 | 데모는 stub로 무과금. 유료 사전/API 신규 도입 금지 |
+| 스캔 PDF OCR (후속) | Tesseract.js | Apache-2.0 · 브라우저 로컬 실행 · **무료** · MVP 제외 |
+
+LLM 호출이 유료라면 그건 기존 오케스트레이터 이슈이지 이번 확장이 새로 만든 비용이 아니다.
+데모/개발은 stub 경로로 과금 없이 돌린다.
+
+### 12.10 확장에서의 1번 역할 경계
+
+| 작업 | 담당 | 1번 관여 |
+| --- | --- | --- |
+| 오케스트레이터/세션 수명/score | **1번** | 직접 |
+| 확장↔백엔드 계약, page-ingestion 계약, 인입 alias 엔드포인트 | **1번** | 직접 구현 |
+| 웹·PDF 공용 tracker/overlay/session_client 계약 | **1번** | 공용화 리드 |
+| `consent`/`userId` 상태 스키마 + 백엔드 userId 정합 | **1번** | 직접 정의 |
+| 본문 추출(Readability/pdf.js → content[] 정규화) | 2번 | 계약 제공·검증 |
+| CORS(chrome-extension 오리진) | 3번 | 요구사항 전달 |
+| 확장 UI(팝업 온보딩·오버레이·툴팁·대시보드) | 4번 | 이벤트·개입 JSON 계약 제공 |
+| 확장 수동 브라우저 E2E | 5번 | 시나리오·검증 조율 |
+
+요약: **1번은 "확장이 붙을 수 있는 계약·세션 수명·백엔드 글루"까지.** 확장 UI 완성은 4번,
+본문 추출은 2번, 실브라우저 E2E는 5번과 협업한다.
+
+---
+
+## 13. 결론
 
 1번 역할은 최종 앱 전체를 혼자 만드는 역할이 아니다.
 

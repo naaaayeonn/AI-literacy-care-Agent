@@ -29,14 +29,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnStart.addEventListener('click', () => {
-    // Tell background to start session for active tab
+    statusText.textContent = "케어 시작 중...";
+    btnStart.disabled = true;
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0].id;
+
+      // 3초 타임아웃: 응답 없어도 낙관적으로 처리
+      let responded = false;
+      const timeout = setTimeout(() => {
+        if (!responded) {
+          responded = true;
+          chrome.storage.local.get(['sessionId'], (s) => {
+            if (s.sessionId) setSessionActive(true);
+            else statusText.textContent = "오류: 서버 연결 실패";
+          });
+        }
+      }, 3000);
+
       chrome.runtime.sendMessage({ type: "START_SESSION", tabId: tabId }, (response) => {
-        if (response && response.success) {
+        if (responded) return;
+        responded = true;
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError || !response) {
+          chrome.storage.local.get(['sessionId'], (s) => {
+            if (s.sessionId) setSessionActive(true);
+            else statusText.textContent = "오류: 서버 연결 실패";
+          });
+        } else if (response.success) {
           setSessionActive(true);
         } else {
           statusText.textContent = "오류: 서버 연결 실패";
+          btnStart.disabled = false;
         }
       });
     });

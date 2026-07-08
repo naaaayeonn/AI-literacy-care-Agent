@@ -38,22 +38,7 @@ def _load_fallback_data() -> dict:
 
 _FALLBACK_DATA = _load_fallback_data()
 
-
-# ---------------------------------------------------------------------------
-# Gemini 클라이언트 로더 (Google AI Studio 무료)
-# ---------------------------------------------------------------------------
-
-def _get_client():
-    """Gemini 클라이언트를 반환한다. 키가 없거나 패키지가 없으면 None."""
-    try:
-        from google import genai
-        api_key = os.getenv("GEMINI_API_KEY", "")
-        if not api_key or api_key.startswith("your_"):
-            return None
-        return genai.Client(api_key=api_key)
-    except ImportError:
-        return None
-
+from backend.app.agents.content_reducer.snowchat_client import is_snowchat_available, _call_llm_via_snowchat
 
 # ---------------------------------------------------------------------------
 # 퀴즈 유효성 검사 (Validation)
@@ -165,28 +150,21 @@ def generate_quiz(chunk_id: str, context: str) -> QuizDict:
     if mode == "stub" or demo_mode:
         return _generate_demo_quiz(chunk_id, context)
 
-    # 2. Anthropic 클라이언트 확인
-    client = _get_client()
-    if client is None:
+    # 2. API 활성화 확인
+    if not is_snowchat_available():
         # API 키가 없으면 데모용 퀴즈 반환
         return _generate_demo_quiz(chunk_id, context)
 
     try:
-        from google.genai import types
-
-        # 퀴즈 생성에는 gemini-2.0-flash 모델을 무료로 사용
-        model = "gemini-2.0-flash"
+        # 퀴즈 생성에는 gemini-2.5-flash 모델을 사용
+        model = "gemini-2.5-flash"
         prompt = build_quiz_prompt(context)
 
-        response = client.models.generate_content(
+        raw_content = _call_llm_via_snowchat(
             model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=QUIZ_SYSTEM_PROMPT,
-            ),
+            prompt=prompt,
+            system_instruction=QUIZ_SYSTEM_PROMPT
         )
-
-        raw_content = response.text.strip()
         
         # JSON 블록 추출 파싱 ({ 로 시작해서 } 로 끝나는 부분 매칭)
         json_match = re.search(r"\{.*\}", raw_content, re.DOTALL)

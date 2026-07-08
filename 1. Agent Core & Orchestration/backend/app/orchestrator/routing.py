@@ -5,11 +5,12 @@ from __future__ import annotations
 from .state import InterventionCommand, InterventionLevel, InterventionType, ReadingSessionState
 
 
+# 사용자에게 그대로 보이는 개입 오버레이 문구(한국어). 확장 오버레이 폴백 톤과 일관되게 유지.
 INTERVENTION_MESSAGES: dict[InterventionLevel, str] = {
     "none": "",
-    "soft": "Highlight the key sentence in the current chunk.",
-    "medium": "Show a short nudge and ask the user to reread the key sentence.",
-    "hard": "Show a quick quiz card before continuing.",
+    "soft": "이 문단의 핵심 문장에 잠시 집중해볼까요?",
+    "medium": "잠깐 멈추고 방금 읽은 핵심 문장을 다시 읽어볼까요?",
+    "hard": "계속하기 전에 방금 읽은 내용을 짧은 퀴즈로 확인해볼까요?",
 }
 
 INTERVENTION_TYPES: dict[InterventionLevel, InterventionType] = {

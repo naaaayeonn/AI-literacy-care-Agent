@@ -22,7 +22,7 @@ def test_run_m1_demo_smoke_result_is_repeatable():
     assert result["intervention"] == {
         "level": "medium",
         "type": "nudge",
-        "message": "Show a short nudge and ask the user to reread the key sentence.",
+        "message": "잠깐 멈추고 방금 읽은 핵심 문장을 다시 읽어볼까요?",
         "reason": "focus_score=39.0",
         "target_chunk_id": "chunk_01",
     }

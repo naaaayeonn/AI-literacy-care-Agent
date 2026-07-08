@@ -1,0 +1,5 @@
+{
+    "raw_text": "Transformer는 Attention 메커니즘을 사용한다.",
+    "expected_quiz": "Transformer는 어떤 메커니즘을 사용하는가?",
+    "expected_answer": "Attention 메커니즘"
+}

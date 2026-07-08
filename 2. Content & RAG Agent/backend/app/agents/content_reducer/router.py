@@ -18,8 +18,8 @@ import os
 # 모델 식별자 상수
 # ---------------------------------------------------------------------------
 
-MODEL_HEAVY = "gemini-2.0-flash"   # 고성능 / 고난도 (Gemini 무료 티어)
-MODEL_LIGHT = "gemini-2.0-flash"   # 경량 / 단순 변환 (Gemini 무료 티어)
+MODEL_HEAVY = "gemini-2.5-flash"   # 고성능 / 고난도 (Gemini 무료 티어)
+MODEL_LIGHT = "gemini-2.5-flash"   # 경량 / 단순 변환 (Gemini 무료 티어)
 
 # 환경 변수로 임계값 조정 가능 (기본값: 55)
 _THRESHOLD = float(os.getenv("DIFFICULTY_THRESHOLD_FOR_HEAVY_LLM", "55"))
