@@ -12,7 +12,11 @@ def run_evaluation(sample: dict) -> dict:
     """
 
     raw_text = sample.get("raw_text", "")
-    expected_quiz = sample.get("expected_quiz", "")
+    quiz = sample.get("expected_quiz", {})
+    if isinstance(quiz, dict):
+        question = quiz.get("question", "")
+    else:
+        question = str(quiz)
     expected_answer = sample.get("expected_answer", "")
 
     faithfulness = calculate_faithfulness_score(
@@ -21,7 +25,7 @@ def run_evaluation(sample: dict) -> dict:
     )
 
     relevance = calculate_relevance_score(
-        question=expected_quiz,
+        question=question,
         answer=expected_answer,
     )
 
