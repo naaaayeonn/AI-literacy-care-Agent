@@ -24,6 +24,7 @@ from backend.app.agents.content_reducer_client import run_content_reducer
 from backend.app.api.frontend_contract import to_intervention_command, to_session_result
 from backend.app.api.reading_session import SESSION_STORE, _normalize_events
 from backend.app.orchestrator.graph import run_reading_session
+from backend.app.agents.qa_eval_client import run_qa_eval_agent
 from backend.app.orchestrator.routing import decide_intervention
 from backend.app.orchestrator.state import ReadingSessionState, create_initial_state
 
@@ -88,6 +89,7 @@ def get_result(session_id: str) -> dict:
     """세션 종료 시 전체 오케스트레이터를 돌려 **최종 결과**(성장 그래프용)를 반환한다."""
     state = _get_state(session_id)
     state = run_reading_session(state)
+    state = run_qa_eval_agent(state)  # 5번 QA: 세션 종료 시 품질 평가
     SESSION_STORE[session_id] = state
     return to_session_result(state)
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from backend.app.agents.cognitive_care_client import run_cognitive_care
 from backend.app.agents.content_reducer_client import run_content_reducer
 from backend.app.orchestrator.graph import run_reading_session
+from backend.app.agents.qa_eval_client import run_qa_eval_agent
 from backend.app.orchestrator.quiz import apply_quiz_result
 from backend.app.orchestrator.routing import decide_intervention
 from backend.app.orchestrator.state import ReadingEvent, ReadingSessionState, create_initial_state
@@ -82,6 +83,7 @@ def finish_session(session_id: str) -> dict:
     """Run the full orchestrator and return final session result."""
     state = _get_state(session_id)
     state = run_reading_session(state)
+    state = run_qa_eval_agent(state)  # 5번 QA: 세션 종료 시 품질 평가
     SESSION_STORE[session_id] = state
     return _final_response(state)
 

@@ -141,6 +141,10 @@ class ReadingSessionState(TypedDict):
     reward: NotRequired[dict]
     updated_profile: NotRequired[dict]
 
+    # --- 5번 QA/Evaluation 산출 ---
+    # run_evaluation_from_state 리포트(faithfulness/relevance/average_score/passed 등)
+    qa_evaluation: NotRequired[dict]
+
     # --- 공통 로깅 ---
     trace: list[TraceEntry]
     errors: list[dict]
