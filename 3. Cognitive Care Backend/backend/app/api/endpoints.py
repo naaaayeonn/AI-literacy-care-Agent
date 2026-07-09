@@ -244,12 +244,27 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
         )
         initial_state["reading_events"] = state_events
         
-        from ..agents.stubs.qa_evaluation_stub import evaluate_quiz_stub
-        from ..agents.content_reducer.quiz_generator import generate_quiz
-        
-        quiz = generate_quiz("chunk_result_test", "AI 리터러시 메타인지 핵심 내용입니다.")
-        initial_state["quiz_result"] = evaluate_quiz_stub(session_id, quiz)
-        
+        # Q1/Q2: Redis에서 실제 퀴즈 채점 결과 읽기 (stub 제거)
+        quiz_key = f"session:{session_id}:quiz_result"
+        quiz_raw = await redis_client.get(quiz_key)
+        if quiz_raw:
+            quiz_data = json.loads(quiz_raw)
+            initial_state["quiz_result"] = {
+                "correct_count": quiz_data.get("correct_count", 0),
+                "total_count":   quiz_data.get("total_count", 0),
+                "answers":       quiz_data.get("answers", [])
+            }
+        else:
+            # 퀴즈를 아예 안 풀었을 때 기본값 (점수 반영 안 됨)
+            initial_state["quiz_result"] = {"correct_count": 0, "total_count": 0}
+
+        # Q4: 5번 QA 품질 게이트 (실패해도 세션 유지)
+        try:
+            from backend.evaluation.evaluation_pipeline import run_evaluation_from_state
+            initial_state["qa_evaluation"] = run_evaluation_from_state(initial_state)
+        except Exception as _qa_err:
+            initial_state.setdefault("errors", {})["qa_evaluation"] = str(_qa_err)
+
         final_state = run_reading_session(initial_state)
         return to_session_result(final_state)
     finally:
@@ -261,18 +276,49 @@ async def submit_quiz(
     req: QuizSubmitRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """퀴즈 답안 제출 및 채점 (6/25 구현)."""
+    """퀴즈 답안 제출 및 채점 — Q1/Q3: 실제 정답키 기준 채점 후 Redis 누적 저장."""
     # 세션 존재 확인
     result = await db.execute(select(ReadingSession).filter(ReadingSession.id == session_id))
     session = result.scalars().first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
-    # 퀴즈 정답 검증 (실연동 한글 정답과 매칭)
-    is_correct = req.selectedOption in ["AI의 활용과 윤리", "A", "a", "1", "true", "True"]
-    
+
+    # Q3: generate_quiz correct_option 기준으로 채점
+    # req.quizCorrectOption (1-indexed) 이 없으면 일반 텍스트 비교 폴백
+    is_correct = False
+    if hasattr(req, 'correctOption') and req.correctOption is not None:
+        # 프론트가 correct_option(1~4 인덱스)을 같이 보낸 경우
+        is_correct = (req.selectedOption == req.correctOption)
+    elif hasattr(req, 'selectedIndex') and hasattr(req, 'correctIndex'):
+        is_correct = (req.selectedIndex == req.correctIndex)
+    else:
+        # 폴백: 선택지 텍스트 직접 비교 (프론트 계약 구버전 호환)
+        is_correct = str(req.selectedOption).strip() == str(getattr(req, 'correctAnswer', '')).strip()
+
     explanation = "정답입니다! 잘 이해하고 있어요." if is_correct else "아쉽지만 틀렸어요. 다시 한번 읽어보세요."
-    
+
+    # Q1: 채점 결과를 Redis에 누적 저장 (session:{id}:quiz_result)
+    redis_client = await get_redis()
+    try:
+        quiz_key = f"session:{session_id}:quiz_result"
+        existing_raw = await redis_client.get(quiz_key)
+        if existing_raw:
+            existing = json.loads(existing_raw)
+        else:
+            existing = {"correct_count": 0, "total_count": 0, "answers": []}
+
+        existing["total_count"] += 1
+        if is_correct:
+            existing["correct_count"] += 1
+        existing["answers"].append({
+            "quiz_id":  req.quizId,
+            "selected": req.selectedOption,
+            "correct":  is_correct
+        })
+        await redis_client.set(quiz_key, json.dumps(existing), ex=86400)  # 24h TTL
+    finally:
+        await redis_client.aclose()
+
     return QuizSubmitResponse(
         correct=is_correct,
         explanation=explanation,
