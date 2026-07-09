@@ -69,7 +69,8 @@ pip install -r requirements.txt
 copy .env.example .env
 # .env 파일을 열어 아래 키를 입력합니다:
 # - GEMINI_API_KEY: SnowChat API 키 (sookmyung.factchat.bot 개발자 대시보드 발급키)
-# - WOORIMAL_API_KEY (선택): 국립국어원 우리말샘 오픈 API 키. 설정 시 hover 단어가 로컬 사전에 없을 경우 우리말샘 API에서 실시간으로 단어 정의를 자동 조회합니다.
+# - WOORIMAL_API_KEY (선택): 국립국어원 우리말샘 오픈 API 키
+# - STDICT_API_KEY (선택): 국립국어원 표준국어대사전 오픈 API 키. 설정 시 표준적 표제어 정의를 우리말샘보다 우선적으로 실시간 매핑합니다.
 ```
 
 ### 2. 데모 모드로 실행 (API 키 없이)
@@ -91,7 +92,7 @@ python -m backend.app.agents.content_reducer.agent
 ## 테스트 실행
 
 ```bash
-# 전체 테스트 (총 94개 테스트)
+# 전체 테스트 (총 97개 테스트 100% Green 패스 완료)
 python -m pytest backend/app/tests/ -v
 
 # 단위 테스트만
@@ -117,6 +118,7 @@ python -m pytest backend/app/tests/test_content_e2e.py -v
 | **Fallback 보장** | 각 서브모듈 실패 시 기본값 반환으로 데모 유지 |
 | **chunk_id 안정성** | 같은 문서는 항상 같은 chunk_id 생성 |
 | **비용 0원 원칙** | 교내 생성형 AI 플랫폼 SnowChat의 `gemini-2.5-flash` 게이트웨이 모델을 활용하여 요금 차단 |
+| **동적 퀴즈 개입** | 3번 WebSocket 연동 시 Redis 세션 상태 기반으로 읽기 진행도에 매칭되는 dynamic 퀴즈 생성 |
 
 
 ---
@@ -136,6 +138,7 @@ python -m pytest backend/app/tests/test_content_e2e.py -v
 ### 3. 실시간 Hover 단어 무료 조회
 * **`POST /api/terms/lookup`**
   * 크롬 확장 프로그램에서 hover된 단어의 용어풀이를 비용 없이 조회 (정확 매칭 + 임베딩 코사인 유사도)
+  * 드래그한 문맥의 `anchorNode.parentElement` 텍스트 기반 300자 추출 전처리로 LLM 동음이의어(Disambiguation) 판별률 극대화
 
 > 전체 계약 명세: [`docs/CONTENT_AGENT_CONTRACT.md`](docs/CONTENT_AGENT_CONTRACT.md)
 
@@ -150,4 +153,4 @@ python -m pytest backend/app/tests/test_content_e2e.py -v
 | M2 | 7/6  | ✅ 퀴즈 생성 및 Orchestrator 통합 완료 |
 | **ME** | 7/6~7/9 | ✅ 크롬 확장 및 PDF 대응 인입/Header/Footer 제거/Lookup 완료 |
 | M3 | 7/10 | ✅ 기능 동결 및 Gemini API 완전 마이그레이션 완료 |
-| M4 | 7/14 | ✅ 최종 제출본 점검 및 기술 방어 스크립트 작성 완료 |
+| M4 | 7/14 | ✅ 최종 제출본 점검, 표준국어대사전 API 통합 및 3번 실시간 개입 퀴즈 버그 픽스 완료 |
