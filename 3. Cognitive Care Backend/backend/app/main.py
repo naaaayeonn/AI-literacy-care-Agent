@@ -3,9 +3,13 @@ import asyncio
 import traceback
 import os
 
-# 로컬 .env 파일 환경변수 자동 로드 (7/13, 7/14 API 키 설정 지원)
+# 로컬 .env 파일 환경변수 자동 로드
 try:
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    # __file__ is backend/app/main.py
+    # os.path.dirname(__file__) is backend/app
+    # os.path.dirname(...) is backend
+    # os.path.dirname(...) is project root (where .env is)
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
     if os.path.exists(env_path):
         with open(env_path, encoding="utf-8") as f:
             for line in f:
@@ -13,7 +17,9 @@ try:
                 if "=" in line and not line.startswith("#"):
                     k, v = line.split("=", 1)
                     os.environ[k.strip()] = v.strip()
-        print("[Startup] Loaded environment from local .env file.")
+        print(f"[Startup] Loaded environment from local .env file: {env_path}")
+    else:
+        print(f"[Startup] .env file not found at {env_path}")
 except Exception as e:
     print(f"[Startup] Failed to load .env: {e}")
 
