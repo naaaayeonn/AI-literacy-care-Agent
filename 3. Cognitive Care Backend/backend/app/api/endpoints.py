@@ -263,7 +263,8 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
             from backend.evaluation.evaluation_pipeline import run_evaluation_from_state
             initial_state["qa_evaluation"] = run_evaluation_from_state(initial_state)
         except Exception as _qa_err:
-            initial_state.setdefault("errors", {})["qa_evaluation"] = str(_qa_err)
+            # state의 errors는 list 규약이므로 append로 기록(과거 dict 인덱싱은 TypeError 유발)
+            initial_state.setdefault("errors", []).append({"step": "qa_evaluation", "error": str(_qa_err)})
 
         final_state = run_reading_session(initial_state)
         return to_session_result(final_state)
