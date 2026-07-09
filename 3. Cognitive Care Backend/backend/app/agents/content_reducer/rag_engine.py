@@ -1,4 +1,4 @@
-﻿"""
+"""
 rag_engine.py — RAG 기반 신뢰 출처 용어풀이 엔진 (M1)
 
 환각(Hallucination) 없이 신뢰할 수 있는 출처 데이터베이스를 기반으로
@@ -550,7 +550,14 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
             if context and len(items) > 1:
                 best_item = _disambiguate_homonyms_with_llm(word, items, context)
 
-            definition = best_item.get("sense", {}).get("definition", "")
+            # sense가 리스트일 수도, 딕셔너리일 수도 있음 — 둘 다 안전하게 처리
+            sense_raw = best_item.get("sense", {})
+            if isinstance(sense_raw, list):
+                sense = sense_raw[0] if sense_raw else {}
+            else:
+                sense = sense_raw
+
+            definition = sense.get("definition", "")
             # HTML 태그 제거
             definition = re.sub(r"<[^>]*>", "", definition).strip()
 
@@ -562,7 +569,6 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
                 }
     except Exception as e:
         print(f"[rag_engine] 우리말샘 API 호출 실패: {e}")
-        raise e
 
     return None
 
@@ -751,25 +757,48 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
     else:
         tried.append("embedding_skipped_no_model")
 
-    # 4. LLM 실시간 의미 유추 시도 (동적 LLM 답변 생성 로직 - 필수)
-    if is_snowchat_available():
-        tried.append("llm")
-        try:
-            llm_def = _query_llm_definition(cleaned_word, context)
-            if llm_def:
-                return TermDict(
-                    term=cleaned_word,
-                    definition=llm_def,
-                    source="LLM 실시간 유추",
-                    faithfulness_score=1.0,
-                    chunk_id="",
-                    _meta={"tried": tried, "errors": errors}
+    # 3. 국립국어원 표준국어대사전 API 조회 시도 (우리말샘에 없을 경우)
+    stdict_key = os.getenv("STDICT_API_KEY", "")
+    if stdict_key:
+        tried.append("stdict")
+        for w in reversed(word_candidates):
+            try:
+                import urllib.parse as _up
+                _url = (
+                    f"https://stdict.korean.go.kr/api/search.do"
+                    f"?key={stdict_key}&q={_up.quote(w)}&req_type=json&start=1&num=10"
                 )
-        except Exception as e:
-            errors["llm"] = str(e)
-            print(f"[rag_engine] 단어 lookup LLM 실시간 유추 중 에러: {e}")
+                _req = urllib.request.Request(_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(_req, timeout=5) as _resp:
+                    _data = json.loads(_resp.read().decode("utf-8"))
+                _items = _data.get("channel", {}).get("item", [])
+                if isinstance(_items, dict):
+                    _items = [_items]
+                if _items:
+                    _item = _items[0]
+                    _sense_raw = _item.get("sense", {})
+                    if isinstance(_sense_raw, list):
+                        _sense = _sense_raw[0] if _sense_raw else {}
+                    else:
+                        _sense = _sense_raw
+                    _def = re.sub(r"<[^>]*>", "", _sense.get("definition", "")).strip()
+                    if _def:
+                        return TermDict(
+                            term=_item.get("word", w).replace("^", "").replace("_", ""),
+                            definition=_def,
+                            source="표준국어대사전 (국립국어원)",
+                            faithfulness_score=1.0,
+                            chunk_id="",
+                            _meta={"tried": tried, "errors": errors}
+                        )
+            except Exception as e:
+                errors["stdict"] = str(e)
+                print(f"[rag_engine] 표준국어대사전 API 검색 중 에러: {e}")
     else:
-        tried.append("llm_skipped_no_key")
+        tried.append("stdict_skipped_no_key")
+
+    # ※ LLM 실시간 유추 비활성화 — 사전 출처가 없는 단어는 조용히 미발견 처리
+    tried.append("llm_disabled_dict_only_mode")
 
     # 5. 최종 미발견 폴백
     return TermDict(
