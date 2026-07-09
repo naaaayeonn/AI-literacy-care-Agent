@@ -1,4 +1,4 @@
-﻿"""
+"""
 rag_engine.py — RAG 기반 신뢰 출처 용어풀이 엔진 (M1)
 
 환각(Hallucination) 없이 신뢰할 수 있는 출처 데이터베이스를 기반으로
@@ -550,7 +550,14 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
             if context and len(items) > 1:
                 best_item = _disambiguate_homonyms_with_llm(word, items, context)
 
-            definition = best_item.get("sense", {}).get("definition", "")
+            # sense가 리스트일 수도, 딕셔너리일 수도 있음 — 둘 다 안전하게 처리
+            sense_raw = best_item.get("sense", {})
+            if isinstance(sense_raw, list):
+                sense = sense_raw[0] if sense_raw else {}
+            else:
+                sense = sense_raw
+
+            definition = sense.get("definition", "")
             # HTML 태그 제거
             definition = re.sub(r"<[^>]*>", "", definition).strip()
 
@@ -562,7 +569,6 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
                 }
     except Exception as e:
         print(f"[rag_engine] 우리말샘 API 호출 실패: {e}")
-        raise e
 
     return None
 
