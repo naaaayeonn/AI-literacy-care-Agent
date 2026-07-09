@@ -59,6 +59,17 @@ _FALLBACK_DATA = _load_fallback_data()
 # ---------------------------------------------------------------------------
 # Gemini 클라이언트 초기화 (Google AI Studio 무료)
 # ---------------------------------------------------------------------------
+# ⚠️ [현황 2026-07-10] 실시간 LLM 쉬운 문장 재구성이 현재 동작하지 않음:
+#   1) `google-genai` 패키지 미설치 → _get_client()가 None 반환 → 항상 _demo_restructure 폴백
+#   2) 설령 설치해도 Gemini 무료 쿼터 소진(HTTP 429) → 호출 실패
+#   현재 업로드 모드는 원문에 "[중급 수준 재구성]" 라벨만 붙는 폴백 상태(실제로 안 쉬워짐).
+#
+# ✅ [TODO: 쿼터 복구 후 SnowChat 경로로 재배선]
+#   rag_engine.py가 성공적으로 쓰는 것과 동일한 HTTP 경로로 통일한다:
+#     from .snowchat_client import is_snowchat_available, _call_llm_via_snowchat
+#   _call_llm()이 genai.Client 대신 _call_llm_via_snowchat(model="gemini-2.0-flash", prompt=...)
+#   를 호출하도록 교체하면, google-genai 패키지 없이도 동일 키로 실 LLM 재구성이 된다.
+#   (교체 후 반드시 원문 != 재구성 텍스트인지 검증할 것)
 
 def _get_client():
     """Gemini 클라이언트를 반환한다. 키가 없거나 패키지가 없으면 None."""
