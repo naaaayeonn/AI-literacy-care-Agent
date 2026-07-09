@@ -1,4 +1,4 @@
-"""
+﻿"""
 chunker.py — 의미 단위 청킹 모듈 (M0)
 
 원문 텍스트를 의미 연결성 기준으로 Chunk 단위로 분할한다.
@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import re
 
-from app.agents.content_reducer.contracts import ChunkDict
-from app.agents.content_reducer.readability import analyze_readability
+from backend.app.agents.content_reducer.contracts import ChunkDict
+from backend.app.agents.content_reducer.readability import analyze_readability
 
 
 # ---------------------------------------------------------------------------

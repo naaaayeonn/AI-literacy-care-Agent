@@ -143,3 +143,21 @@
 | **완료 기준** | 100회 이상의 WebSocket 미세 스트리밍 전송 및 퀴즈 제출, 대시보드 시계열 분석 호출로 이루어지는 종합 테스트 코드가 통과함. |
 | **팀원 확인사항** | ⑤ QA 파트와의 백엔드 데이터 정합성 검증 확인서 승인. |
 | **실패 시 대체안** | 시나리오 테스트 상 실패 항목 발생 시, 지장을 주는 일부 마이너 기능(경험치 배지 획득 등)의 연동 부분을 비활성화하고 코어 읽기 흐름만 통과 처리함. |
+
+---
+
+### [M3] 2번/5번 최종 통합 현황 (2026-07-09 기준)
+
+> 1번 팀 코드리뷰 반영 · 기능 프리즈 전 최종 상태
+
+| 항목 | 상태 | 근거 |
+| :--- | :--- | :--- |
+| **2번(Content Reducer) 통합** | ✅ **완료** | `/start` → `run_content_reducer(state)` 실제 호출, chunks/terms/difficulty 정상 생성 확인 |
+| **5번(Quiz/QA) 퀴즈 채점 저장 (Q1)** | ✅ **완료** | `/quiz/submit` 채점 결과 `session:{id}:quiz_result` Redis에 누적 저장 |
+| **5번(Quiz/QA) correct_count 계약 (Q2)** | ✅ **완료** | `/result` quiz_result를 `{correct_count, total_count}` 구조로 교체, stub(`qa_evaluation_stub`) 삭제 |
+| **5번(Quiz/QA) 정답키 채점 (Q3)** | ✅ **완료** | `submit_quiz` 하드코딩 제거 → `correctOption`/`selectedOption` 비교 채점, 폴백 포함 |
+| **5번 QA 품질 게이트 (Q4)** | ✅ **완료** | `run_evaluation_from_state` 지연 로딩 try/except로 `/result`에 부착, 실패 시 `state["errors"]`에만 기록 |
+
+**결론**: M3의 2번은 이미 완료, 5번 퀴즈/QA 배선(Q1~Q4) 모두 2026-07-09에 배선 완료.  
+`score.py`가 `correct_count/total_count`를 읽어 실제 정답률 → Literacy Score 이해도 항목이 실 연결됨.  
+기능 프리즈(7/10) 전 완료 선언.

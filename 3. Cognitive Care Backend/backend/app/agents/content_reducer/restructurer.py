@@ -1,4 +1,4 @@
-"""
+﻿"""
 restructurer.py — LLM 기반 텍스트 재구성 모듈 (M1)
 
 사용자의 리터러시 프로필과 텍스트 난이도에 따라
@@ -25,12 +25,12 @@ import re
 import time
 from pathlib import Path
 
-from app.agents.content_reducer.contracts import ChunkDict
-from app.agents.content_reducer.prompts import (
+from backend.app.agents.content_reducer.contracts import ChunkDict
+from backend.app.agents.content_reducer.prompts import (
     RESTRUCTURE_SYSTEM_PROMPT,
     build_restructure_prompt,
 )
-from app.agents.content_reducer.router import get_routing_reason, select_model
+from backend.app.agents.content_reducer.router import get_routing_reason, select_model
 
 # ---------------------------------------------------------------------------
 # 환경 설정

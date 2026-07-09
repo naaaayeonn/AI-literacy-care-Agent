@@ -1,4 +1,4 @@
-"""
+﻿"""
 quiz_generator.py — 문맥 맞춤형 퀴즈 생성기 (M2)
 
 집중도 저하 등의 개입 상황이 발생했을 때,
@@ -16,9 +16,9 @@ import json
 import os
 import re
 
-from app.agents.content_reducer.contracts import QuizDict, QuizGenerationRequest
-from app.agents.content_reducer.fallbacks import fallback_quiz
-from app.agents.content_reducer.prompts import QUIZ_SYSTEM_PROMPT, build_quiz_prompt
+from backend.app.agents.content_reducer.contracts import QuizDict, QuizGenerationRequest
+from backend.app.agents.content_reducer.fallbacks import fallback_quiz
+from backend.app.agents.content_reducer.prompts import QUIZ_SYSTEM_PROMPT, build_quiz_prompt
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
