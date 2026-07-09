@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from httpx import AsyncClient, ASGITransport
 import sys
 import asyncio
@@ -7,7 +7,7 @@ import asyncio
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from app.main import app
+from backend.app.main import app
 
 @pytest.mark.anyio
 async def test_extension_e2e():

@@ -1,4 +1,4 @@
-"""통합 테스트 - M2 완성 검증 (7/6 구현)
+﻿"""통합 테스트 - M2 완성 검증 (7/6 구현)
 
 Orchestrator 파이프라인 전체 흐름을 테스트합니다:
 1. Score Engine 계산 정확성
@@ -22,7 +22,7 @@ class TestScoreEngine:
     """Score Engine 단위 테스트 (6/26 검증)."""
     
     def test_compute_score_basic(self):
-        from app.orchestrator.score import compute_score
+        from backend.app.orchestrator.score import compute_score
         score, breakdown = compute_score(
             quiz_correct_rate=0.8,
             focus_score=70.0,
@@ -35,7 +35,7 @@ class TestScoreEngine:
         assert breakdown["engagement_score"] == 70.0
     
     def test_compute_score_with_penalty(self):
-        from app.orchestrator.score import compute_score
+        from backend.app.orchestrator.score import compute_score
         score, _ = compute_score(
             quiz_correct_rate=1.0,
             focus_score=100.0,
@@ -46,7 +46,7 @@ class TestScoreEngine:
         assert score == 90.0, f"Expected 90.0, got {score}"
     
     def test_compute_score_clamped(self):
-        from app.orchestrator.score import compute_score
+        from backend.app.orchestrator.score import compute_score
         score, _ = compute_score(
             quiz_correct_rate=0.0,
             focus_score=0.0,
@@ -56,7 +56,7 @@ class TestScoreEngine:
         assert score == 0.0, "Score should be clamped to 0"
     
     def test_compute_score_nan_handling(self):
-        from app.orchestrator.score import compute_score
+        from backend.app.orchestrator.score import compute_score
         score, _ = compute_score(
             quiz_correct_rate=float('nan'),
             focus_score=70.0,
@@ -70,22 +70,22 @@ class TestRouting:
     """Intervention 라우팅 테스트 (6/24 검증)."""
     
     def test_none_intervention(self):
-        from app.orchestrator.routing import level_for_focus
+        from backend.app.orchestrator.routing import level_for_focus
         assert level_for_focus(90.0) == "none"
         assert level_for_focus(75.0) == "none"
     
     def test_soft_intervention(self):
-        from app.orchestrator.routing import level_for_focus
+        from backend.app.orchestrator.routing import level_for_focus
         assert level_for_focus(74.9) == "soft"
         assert level_for_focus(50.0) == "soft"
     
     def test_medium_intervention(self):
-        from app.orchestrator.routing import level_for_focus
+        from backend.app.orchestrator.routing import level_for_focus
         assert level_for_focus(49.9) == "medium"
         assert level_for_focus(30.0) == "medium"
     
     def test_hard_intervention(self):
-        from app.orchestrator.routing import level_for_focus
+        from backend.app.orchestrator.routing import level_for_focus
         assert level_for_focus(29.9) == "hard"
         assert level_for_focus(0.0) == "hard"
 
@@ -94,19 +94,19 @@ class TestReward:
     """Reward 서비스 테스트 (7/1 검증)."""
     
     def test_xp_calculation(self):
-        from app.services.reward_service import calculate_xp
+        from backend.app.services.reward_service import calculate_xp
         xp = calculate_xp(literacy_score=80.0, completed=True, streak_days=0)
         # 80 * 1.5 + 20 = 140
         assert xp == 140
     
     def test_xp_with_streak(self):
-        from app.services.reward_service import calculate_xp
+        from backend.app.services.reward_service import calculate_xp
         xp = calculate_xp(literacy_score=80.0, completed=True, streak_days=3)
         # 80 * 1.5 + 20 + 15 = 155
         assert xp == 155
     
     def test_level_calculation(self):
-        from app.services.reward_service import get_level_for_xp
+        from backend.app.services.reward_service import get_level_for_xp
         assert get_level_for_xp(0) == 1
         assert get_level_for_xp(99) == 1
         assert get_level_for_xp(100) == 2
@@ -114,7 +114,7 @@ class TestReward:
         assert get_level_for_xp(1000) == 5
     
     def test_badge_first_read(self):
-        from app.services.reward_service import check_badges
+        from backend.app.services.reward_service import check_badges
         badges = check_badges(total_sessions=1)
         badge_ids = [b["id"] for b in badges]
         assert "first-read" in badge_ids
@@ -124,8 +124,8 @@ class TestFullPipeline:
     """Orchestrator 전체 파이프라인 테스트 (7/5~7/6 검증)."""
     
     def test_full_reading_session(self):
-        from app.orchestrator.state import create_initial_state
-        from app.orchestrator.graph import run_reading_session
+        from backend.app.orchestrator.state import create_initial_state
+        from backend.app.orchestrator.graph import run_reading_session
         
         state = create_initial_state(
             session_id="test-session-001",
@@ -176,8 +176,8 @@ class TestFullPipeline:
     
     def test_pipeline_with_no_events(self):
         """이벤트 없이도 파이프라인이 정상 동작하는지 테스트."""
-        from app.orchestrator.state import create_initial_state
-        from app.orchestrator.graph import run_reading_session
+        from backend.app.orchestrator.state import create_initial_state
+        from backend.app.orchestrator.graph import run_reading_session
         
         state = create_initial_state(
             session_id="test-empty",
@@ -194,8 +194,8 @@ class TestFullPipeline:
     
     def test_pipeline_fallbacks(self):
         """각 단계의 fallback이 정상 동작하는지 테스트."""
-        from app.orchestrator.state import create_initial_state, ReadingSessionState
-        from app.orchestrator.errors import (
+        from backend.app.orchestrator.state import create_initial_state, ReadingSessionState
+        from backend.app.orchestrator.errors import (
             apply_content_reducer_fallback,
             apply_cognitive_care_fallback,
             apply_score_fallback,
@@ -235,7 +235,7 @@ class TestContracts:
     """Contract 검증 테스트 (M2 검증)."""
     
     def test_valid_contract(self):
-        from app.orchestrator.contracts import validate_contract
+        from backend.app.orchestrator.contracts import validate_contract
         payload = {
             "focus_score": 80.0,
             "engagement_score": 75.0,
@@ -246,13 +246,13 @@ class TestContracts:
         validate_contract("cognitive_care", payload)
     
     def test_invalid_contract(self):
-        from app.orchestrator.contracts import validate_contract, ContractValidationError
+        from backend.app.orchestrator.contracts import validate_contract, ContractValidationError
         payload = {"focus_score": 80.0}  # 필수 필드 누락
         with pytest.raises(ContractValidationError):
             validate_contract("cognitive_care", payload)
     
     def test_unknown_contract_passes(self):
-        from app.orchestrator.contracts import validate_contract
+        from backend.app.orchestrator.contracts import validate_contract
         validate_contract("unknown_agent", {})  # 예외 없이 통과
 
 
@@ -260,11 +260,11 @@ class TestCognitiveCare:
     """기존 Cognitive Care 테스트 확장."""
     
     def test_focus_score_no_events(self):
-        from app.services.cognitive_care import calculate_focus_score
+        from backend.app.services.cognitive_care import calculate_focus_score
         assert calculate_focus_score([]) == 100.0
     
     def test_focus_score_with_blur(self):
-        from app.services.cognitive_care import calculate_focus_score
+        from backend.app.services.cognitive_care import calculate_focus_score
         events = [
             {"type": "blur", "duration_ms": 5000},
             {"type": "scroll"},
@@ -274,7 +274,7 @@ class TestCognitiveCare:
         assert score < 100.0, "Blur events should reduce focus score"
     
     def test_intervention_levels(self):
-        from app.services.cognitive_care import determine_intervention
+        from backend.app.services.cognitive_care import determine_intervention
         
         needed, level, msg = determine_intervention(90.0)
         assert not needed
@@ -289,7 +289,7 @@ class TestRAGService:
     
     @pytest.mark.anyio
     async def test_explain_term_with_context(self):
-        from app.services.rag_service import explain_term_with_rag
+        from backend.app.services.rag_service import explain_term_with_rag
         
         raw_text = (
             "디지털 문명에서 글을 정확하게 해석하는 리터러시 역량은 매우 중요합니다. "
@@ -305,7 +305,7 @@ class TestRAGService:
         
     @pytest.mark.anyio
     async def test_explain_term_fallback_dictionary(self):
-        from app.services.rag_service import explain_term_with_rag
+        from backend.app.services.rag_service import explain_term_with_rag
         
         # 지문에 존재하지 않는 핵심 단어 -> 사전 정의 제공
         explanation = await explain_term_with_rag(term="LLM", raw_text="임의의 지문 텍스트입니다.")
@@ -316,7 +316,7 @@ class TestRAGService:
         
     @pytest.mark.anyio
     async def test_explain_term_unknown_term(self):
-        from app.services.rag_service import explain_term_with_rag
+        from backend.app.services.rag_service import explain_term_with_rag
         
         # 사전에 없는 단어 -> 일반 범용 설명 리턴
         explanation = await explain_term_with_rag(term="미정의단어", raw_text="임의의 텍스트")

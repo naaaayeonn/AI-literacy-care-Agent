@@ -1,4 +1,4 @@
-"""
+﻿"""
 fallbacks.py — 서브모듈 실패 시 기본값 처리 (M0)
 
 각 서브모듈이 예외를 발생시켰을 때 전체 데모가 중단되지 않도록
@@ -11,7 +11,7 @@ fallbacks.py — 서브모듈 실패 시 기본값 처리 (M0)
 """
 from __future__ import annotations
 
-from app.agents.content_reducer.contracts import ChunkDict, QuizDict, TermDict
+from backend.app.agents.content_reducer.contracts import ChunkDict, QuizDict, TermDict
 
 
 # ---------------------------------------------------------------------------

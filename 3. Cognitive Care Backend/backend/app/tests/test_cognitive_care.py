@@ -1,5 +1,5 @@
-import pytest
-from app.services.cognitive_care import calculate_focus_score, determine_intervention
+﻿import pytest
+from backend.app.services.cognitive_care import calculate_focus_score, determine_intervention
 
 def test_calculate_focus_score_empty():
     assert calculate_focus_score([]) == 100.0

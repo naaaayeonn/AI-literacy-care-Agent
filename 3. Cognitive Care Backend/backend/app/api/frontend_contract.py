@@ -1,4 +1,4 @@
-"""오케스트레이터 출력 → 프론트(4번) 계약 변환 어댑터.
+﻿"""오케스트레이터 출력 → 프론트(4번) 계약 변환 어댑터.
 
 1번 역할의 산출물 중 하나: "프론트가 바로 렌더링할 수 있는 JSON 제공".
 프론트(apps/web)는 camelCase + 중첩(type/payload) 구조를 쓰는데, 내부 state는
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.orchestrator.state import ReadingSessionState
+from backend.app.orchestrator.state import ReadingSessionState
 
 # --- 내 intervention.type → 프론트 InterventionType 매핑 ---
 # 내부: none/highlight/nudge/quiz  →  프론트: nudge/quiz/highlight/score_update/session_end
