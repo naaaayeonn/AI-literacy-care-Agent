@@ -21,24 +21,7 @@ import { api, type GrowthReportResponse } from '../../lib/api';
 import { useSessionConfig } from '../../stores/sessionConfigStore';
 
 // ── 데이터 타입 정의 ──────────────────────────────────────────────────
-interface RadarDataPoint {
-  subject: string;
-  before: number;
-  after: number;
-}
-
-interface ActivityDataPoint {
-  label: string;
-  time: number;
-  xp: number;
-}
-
-interface VocabularyWord {
-  word: string;
-  meaning: string;
-  level: '상' | '중' | '하';
-  status: 'completed' | 'review';
-}
+// (Zustand/API 타입 연동 완료로 비활성화)
 
 // ── 커스텀 툴팁 ──────────────────────────────────────────────────────
 const CustomRadarTooltip = ({ active, payload }: any) => {
