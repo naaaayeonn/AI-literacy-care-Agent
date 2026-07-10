@@ -22,8 +22,8 @@ export default function SignUpPage() {
 
     try {
       await signUp(email, password, nickname);
-      // 회원가입 성공 시 가상 온보딩(캘리브레이션 단계)을 위해 온보딩으로 이동
-      navigate('/onboarding', { replace: true });
+      // 가입 즉시 대시보드로 이동하여 튜토리얼 모달을 띄움
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       // 에러는 스토어 내부에서 set하므로 무시
     }
