@@ -22,8 +22,8 @@ export default function SignUpPage() {
 
     try {
       await signUp(email, password, nickname);
-      // 가입 즉시 대시보드로 이동하여 튜토리얼 모달을 띄움
-      navigate('/dashboard', { replace: true });
+      // 회원가입 성공 시 튜토리얼 및 속도 측정을 위해 /onboarding으로 이동
+      navigate('/onboarding', { replace: true });
     } catch (err) {
       // 에러는 스토어 내부에서 set하므로 무시
     }

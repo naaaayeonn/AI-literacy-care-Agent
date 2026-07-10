@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSessionConfig } from '../stores/sessionConfigStore';
 import { Button } from '../components/common/Button';
+import { useAuthStore } from '../stores/authStore';
+import TutorialModal from '../components/common/TutorialModal';
 
 // 캘리브레이션 텍스트 정의
 const EASY_TEXTS = [
@@ -23,6 +25,9 @@ type Step = 'consent' | 'intro' | 'calibration_easy' | 'calibration_hard' | 'res
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const onboard = useSessionConfig((s) => s.onboard);
+  
+  // 7/11: 로컬 인증 및 온보딩 세션 구독
+  const { user, isAuthenticated } = useAuthStore();
   const setBaseline = useSessionConfig((s) => s.setBaseline);
   
   const [step, setStep] = useState<Step>('consent');
@@ -394,6 +399,9 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
+
+      {/* 7/11: 회원가입 후 즉시 진입 시 튜토리얼 팝업 오버레이 */}
+      {isAuthenticated && user && !user.onboardingCompleted && <TutorialModal />}
     </div>
   );
 }
