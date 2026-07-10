@@ -18,6 +18,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
   checkSession: () => void;
+  completeOnboarding: () => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -164,6 +165,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch {
       set({ user: null, isAuthenticated: false });
+    }
+  },
+
+  completeOnboarding: () => {
+    try {
+      const currentUid = localStorage.getItem(SESSION_KEY);
+      if (!currentUid) return;
+
+      const users = getLocalUsers();
+      if (users[currentUid]) {
+        users[currentUid].onboardingCompleted = true;
+        saveLocalUsers(users);
+
+        set((state) => ({
+          user: state.user ? { ...state.user, onboardingCompleted: true } : null,
+        }));
+        console.log('[AUTH] Onboarding completed status saved locally.');
+      }
+    } catch (e) {
+      console.error('Failed to update onboarding complete status', e);
     }
   },
 }));

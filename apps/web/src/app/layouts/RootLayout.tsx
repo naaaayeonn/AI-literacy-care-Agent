@@ -1,6 +1,8 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useFocusStore } from '../../stores/focusStore';
 import { useReadingStore } from '../../stores/readingStore';
+import { useAuthStore } from '../../stores/authStore';
+import TutorialModal from '../../components/common/TutorialModal';
 
 /**
  * RootLayout — 6/22 스토어 연결 업데이트
@@ -13,6 +15,9 @@ export default function RootLayout() {
   // 헤더 StatusPill용 스토어 구독
   const focusScore = useFocusStore((s) => s.focusScore);
   const progress = useReadingStore((s) => s.progress);
+
+  // 7/11: 로컬 인증 상태 및 온보딩 여부 구독
+  const { user, isAuthenticated } = useAuthStore();
 
   return (
     <div
@@ -108,6 +113,9 @@ export default function RootLayout() {
       <main>
         <Outlet />
       </main>
+
+      {/* 7/11: 초기 가입자 온보딩 튜토리얼 모달 오버레이 */}
+      {isAuthenticated && user && !user.onboardingCompleted && <TutorialModal />}
     </div>
   );
 }
