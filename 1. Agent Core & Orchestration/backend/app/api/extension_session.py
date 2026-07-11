@@ -19,7 +19,10 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 
-from backend.app.agents.cognitive_care_client import run_cognitive_care
+from backend.app.agents.cognitive_care_client import (
+    calculate_focus_breakdown,
+    run_cognitive_care,
+)
 from backend.app.agents.content_reducer_client import run_content_reducer
 from backend.app.api.frontend_contract import to_intervention_command, to_session_result
 from backend.app.api.reading_session import SESSION_STORE, _normalize_events
@@ -81,7 +84,11 @@ def push_events(session_id: str, payload: dict) -> dict:
     state = decide_intervention(state)
     SESSION_STORE[session_id] = state
 
-    return to_intervention_command(state)
+    command = to_intervention_command(state)
+    # 디버그 모니터용 감점 내역(집중도 파라미터 실시간 확인). 프론트 계약과 무관한
+    # 추가 키라 4번 render()는 무시한다. 누적 reading_events 기준 서버 진실값.
+    command["debug"] = calculate_focus_breakdown(state.get("reading_events", []))
+    return command
 
 
 @router.get("/{session_id}/result")

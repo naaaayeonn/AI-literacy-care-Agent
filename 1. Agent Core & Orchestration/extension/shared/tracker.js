@@ -20,19 +20,69 @@ window.ALC_Tracker = (() => {
     const startedAt = Date.now();
     const now = () => Date.now() - startedAt; // 세션 상대 ms(정수)
     let lastScrollAt = 0;
+    let lastOffset = null; // 직전 스크롤 오프셋(px) — px/ms 속도 계산용
+    let lastPosition = null; // 직전 진행률(0~1) — %/초 속도 계산용
     let idleTimer = null;
+
+    // 실제로 스크롤된 요소를 찾는다. scroll 이벤트는 버블링이 안 되므로 capture로 듣고,
+    // e.target(스크롤된 요소)에서 오프셋을 읽어야 내부 컨테이너 스크롤도 잡힌다.
+    // 문서 스크롤이면 e.target이 document → scrollingElement로 환산.
+    function currentScroller(e) {
+      const target = e && e.target;
+      if (!target || target === document || target === window ||
+          target === document.documentElement || target === document.body) {
+        return document.scrollingElement || document.documentElement || document.body;
+      }
+      return target;
+    }
 
     function emit(type, extra) {
       onEvent({ type, timestamp_ms: now(), ...extra });
       resetIdle();
     }
 
-    function onScroll() {
+    function onScroll(e) {
       const t = Date.now();
-      const interval = t - (lastScrollAt || t);
-      if (interval < scrollThrottleMs) return; // 과도 전송 방지
+      // 스로틀: 직전 emit 후 throttle ms 이내면 건너뜀. 단 첫 스크롤은 반드시 통과시키고
+      // lastScrollAt을 갱신한다. (버그: 예전엔 lastScrollAt=0 → (lastScrollAt||t)=t →
+      //  interval이 항상 0 → 항상 return → lastScrollAt이 영영 갱신 안 돼 스크롤이 통째로 차단됐음.)
+      if (lastScrollAt && t - lastScrollAt < scrollThrottleMs) return; // 과도 전송 방지
+      const interval = lastScrollAt ? t - lastScrollAt : 0;
       lastScrollAt = t;
-      emit("scroll", { position: clamp01(getProgress()), duration_ms: interval });
+
+      // 백엔드로 보내는 진행률은 주입된 getProgress 유지(웹=scrollY/max, PDF=page/total).
+      const position = clamp01(getProgress());
+
+      // 속도 계산용 오프셋/진행률 — 실제 스크롤된 요소 기준(내부 컨테이너 스크롤 대응).
+      const scroller = currentScroller(e);
+      const offset =
+        scroller && typeof scroller.scrollTop === "number"
+          ? scroller.scrollTop
+          : window.scrollY || window.pageYOffset || 0;
+      let scrollProgress = position;
+      if (scroller) {
+        const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+        if (maxScroll > 0) scrollProgress = clamp01(offset / maxScroll);
+      }
+
+      // 스크롤 속도 — 첫 스크롤은 기준이 없어 0.
+      //  velocity: 이동 픽셀 / 경과 ms (px/ms) — 3번 calculate_focus_score가 읽는 필드
+      //  speed_pct_s: 진행률 변화(%) / 경과 초 (%/초) — 모니터 표시용
+      let pxPerMs = 0;
+      let pctPerSec = 0;
+      if (interval > 0) {
+        if (lastOffset != null) pxPerMs = Math.abs(offset - lastOffset) / interval;
+        if (lastPosition != null) pctPerSec = (Math.abs(scrollProgress - lastPosition) * 100) / (interval / 1000);
+      }
+      lastOffset = offset;
+      lastPosition = scrollProgress;
+      // velocity(px/ms)는 3번 집중도 로직이 읽는 계약 필드. speed_pct_s는 모니터 표시용.
+      emit("scroll", {
+        position,
+        duration_ms: interval,
+        velocity: Math.round(pxPerMs * 100) / 100,
+        speed_pct_s: Math.round(pctPerSec * 10) / 10,
+      });
     }
 
     function onBlur() {
@@ -57,7 +107,8 @@ window.ALC_Tracker = (() => {
     }
 
     function attach() {
-      scrollTarget.addEventListener("scroll", onScroll, { passive: true });
+      // capture: true — scroll은 버블링이 안 되므로 캡처 단계로 들어야 내부 컨테이너 스크롤까지 잡는다.
+      scrollTarget.addEventListener("scroll", onScroll, { passive: true, capture: true });
       window.addEventListener("blur", onBlur);
       window.addEventListener("focus", onFocus);
       document.addEventListener("visibilitychange", onVisibility);
@@ -65,7 +116,7 @@ window.ALC_Tracker = (() => {
     }
 
     function detach() {
-      scrollTarget.removeEventListener("scroll", onScroll);
+      scrollTarget.removeEventListener("scroll", onScroll, { capture: true });
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);

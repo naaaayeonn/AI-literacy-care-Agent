@@ -1,7 +1,10 @@
 // 확장 전역 설정. content script·popup·pdf 뷰어가 함께 참조한다.
 // 백엔드 주소가 바뀌면 여기만 고치면 된다.
 window.ALC_CONFIG = {
-  API_BASE: "http://localhost:8000",
+  // 127.0.0.1(IPv4 리터럴)로 고정 — Windows Chrome은 localhost를 IPv6(::1)로
+  // 먼저 해석하는데 백엔드가 IPv4에만 뜨면 "Failed to fetch"가 난다. IP 리터럴은
+  // DNS 해석을 건너뛰어 어느 OS에서든 결정적으로 IPv4 서버에 붙는다.
+  API_BASE: "http://127.0.0.1:8000",
   // 전송은 REST(ADR-001). WebSocket 없음.
 
   // 읽기 세션 자동 시작 임계값

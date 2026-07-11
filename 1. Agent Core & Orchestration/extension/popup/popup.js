@@ -21,3 +21,9 @@ checkbox.addEventListener("change", async () => {
   await chrome.storage.local.set({ enabled });
   render(enabled);
 });
+
+// 로컬 PDF: pdf.js 뷰어를 새 탭으로 연다(뷰어의 "문서 열기" 파일 피커로 선택).
+// file:// PDF는 declarativeNetRequest 대상이 아니므로 이 경로로 처리한다.
+document.getElementById("openPdf").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("pdf/viewer.html") });
+});

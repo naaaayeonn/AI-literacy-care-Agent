@@ -14,14 +14,15 @@ def test_calibration_focused():
     assert score >= 80.0
 
 def test_calibration_distracted_demo():
-    # 데모 산만 시나리오: blur 2회(약 2.3초) + 빠른 scroll 2회
+    # 데모 산만 시나리오: blur 2회(약 2.3초) + 스키밍 scroll 2회
+    # 스키밍은 스크롤 속도(velocity>1.5)로 판정한다(간격<250ms 조건 제거됨).
     events = [
-        {"type": "blur", "duration_ms": 1000}, # -22점
-        {"type": "blur", "duration_ms": 1300}, # -22.6점
-        {"type": "scroll", "duration_ms": 200}, # -5점
-        {"type": "scroll", "duration_ms": 100}, # -5점
-    ] 
-    # 총 감점 54.6점 -> 45.4점 예상
+        {"type": "blur", "duration_ms": 1000},              # -22점
+        {"type": "blur", "duration_ms": 1300},              # -22.6점
+        {"type": "scroll", "duration_ms": 200, "velocity": 2.0},  # 스키밍 -8점
+        {"type": "scroll", "duration_ms": 100, "velocity": 2.5},  # 스키밍 -8점
+    ]
+    # 총 감점 60.6점 -> 39.4점 예상
     score = calculate_focus_score(events)
     assert 35.0 <= score <= 50.0
 

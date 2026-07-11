@@ -104,25 +104,34 @@ def _generate_demo_quiz(chunk_id: str, context: str) -> QuizDict:
                     )
 
     # 2. 매칭 실패 시 단순 시뮬레이션
-    # 본문에서 핵심 키워드 검색 시도
-    keywords = ["인공지능", "LLM", "RAG", "레이턴시", "메타인지", "문해력", "인지부하", "임베딩"]
-    found = "본문 내용"
-    for kw in keywords:
-        if kw in context:
-            found = kw
-            break
+    # 본문에서 동적으로 명사 형태의 후보 단어를 추출하여 퀴즈 다양성 증대
+    candidate_words = [w for w in re.findall(r"[가-힣]{3,6}", context) if len(w) >= 3]
+    found = None
+    if candidate_words:
+        import hashlib
+        # chunk_id별로 고정된 인덱스를 사용하되 다른 chunk에는 다른 단어가 나오도록 해싱 기반 선택
+        idx = int(hashlib.md5(chunk_id.encode("utf-8")).hexdigest(), 16) % len(candidate_words)
+        found = candidate_words[idx]
+        
+    if not found:
+        keywords = ["인공지능", "LLM", "RAG", "레이턴시", "메타인지", "문해력", "인지부하", "임베딩"]
+        found = "본문 내용"
+        for kw in keywords:
+            if kw in context:
+                found = kw
+                break
 
     return QuizDict(
         chunk_id=chunk_id,
-        question=f"본문에서 설명된 '{found}'의 주요 내용과 가장 일치하는 설명은 무엇인가요?",
+        question=f"본문에서 설명된 '{found}'의 주요 특징이나 설명으로 가장 적절한 것은 무엇인가요?",
         options=[
-            f"1. {found}은 교육 발달에 아무런 영향을 미치지 않는다.",
-            f"2. {found}의 개념을 명확히 이해하고 활용하여 문해력을 높일 수 있다.",
-            f"3. {found}은 오직 컴퓨터 전공자만 이해할 수 있는 전문 지식이다.",
-            f"4. {found}은 시스템 지연 시간을 오히려 증가시키는 주요 원인이다."
+            f"1. {found}은 학습 성과나 이해를 방해하는 유해한 요소이다.",
+            f"2. {found}의 개념을 올바르게 파악하고 활용하는 것이 본문을 이해하는 데 중요하다.",
+            f"3. {found}은 전혀 고려할 필요가 없는 불필요한 개념이다.",
+            f"4. {found}은 오직 특정 전문가들 사이에서만 임의로 정의되어 사용된다."
         ],
         correct_option=2,
-        explanation=f"본문 문맥상 '{found}' 관련 내용은 독자의 학습 효율을 높이고 문해력을 돕는 용도 또는 특징으로 설명하고 있으므로 2번이 가장 올바른 설명입니다."
+        explanation=f"본문의 전반적인 맥락과 가독성 가이드라인에 비추어 볼 때, '{found}'에 대한 설명은 이해도를 높이기 위한 중요한 핵심 개념으로 서술되어 있으므로 2번이 가장 올바른 답입니다."
     )
 
 

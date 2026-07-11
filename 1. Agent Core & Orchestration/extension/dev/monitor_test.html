@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>집중도 모니터 개발 하니스</title>
+  <style>
+    body { font-family: system-ui, "Malgun Gothic", sans-serif; max-width: 720px; margin: 0 auto; padding: 24px; color: #1a1a1a; line-height: 1.7; }
+    h1 { font-size: 20px; }
+    .panel { position: sticky; top: 0; background: #fff; padding: 12px 0; border-bottom: 2px solid #eee; margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 5; }
+    button { padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 8px; background: #f6f8fa; cursor: pointer; font-size: 13px; }
+    button:hover { background: #eaeef2; }
+    button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+    #status { font-size: 12px; color: #57606a; align-self: center; margin-left: auto; }
+    article p { margin: 14px 0; }
+    .spacer { height: 900px; }
+    code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <button class="primary" id="start">세션 시작</button>
+    <button id="stop">세션 종료</button>
+    <button id="mon">모니터 열기 (Ctrl+Shift+F)</button>
+    <button id="blur">이탈(blur)</button>
+    <button id="focus">복귀(focus)</button>
+    <button id="fast">빠른 스크롤 ×5</button>
+    <button id="pause">멈춤(pause)</button>
+    <span id="status">대기 중</span>
+  </div>
+
+  <h1>집중도 모니터 개발 하니스</h1>
+  <p><b>사용법</b>: ① 백엔드(<code>localhost:8000</code>)를 먼저 켠다 → ② <b>세션 시작</b> →
+     ③ <b>모니터 열기</b>(또는 Ctrl+Shift+F) → ④ 아래 시뮬 버튼을 누르거나 실제로 스크롤/창 전환하면
+     별도 창의 집중도 지수와 파라미터가 실시간으로 갱신된다.</p>
+  <p>이 페이지는 확장이 쓰는 <code>tracker.js · debug_monitor.js · session_client.js</code>를 그대로 로드한다.
+     즉 여기서 실시간으로 도는 흐름이 곧 확장에서 도는 흐름이다(확장은 여기에 크롬 팝업·storage 글루만 더한다).</p>
+
+  <article id="article">
+    <p>인공지능 리터러시는 단순히 도구를 다루는 능력을 넘어, 생성형 모델이 만들어 내는 정보를 비판적으로
+       읽고 판단하는 역량을 뜻한다. 정보의 양이 폭발적으로 늘어난 오늘날, 글을 끝까지 집중해서 읽고 그
+       핵심을 스스로 정리하는 힘은 오히려 더 희소해지고 있다.</p>
+    <p>이 시스템은 사용자가 글을 읽는 과정 자체를 측정한다. 스크롤 속도, 창 전환, 무동작 구간 같은 읽기
+       행동 신호를 모아 집중도 지수를 계산하고, 집중이 흔들리는 순간을 감지하면 부드러운 개입으로 다시
+       글에 몰입하도록 돕는다. 요약을 대신 해 주는 것이 아니라, 읽는 힘 자체를 기르도록 설계되었다.</p>
+    <p>집중도 지수는 기본 100점에서 출발한다. 창을 벗어나는 이탈이 일어나면 큰 폭으로 감점되고, 글을
+       제대로 읽지 않고 빠르게 넘기는 스크롤도 감점 요인이 된다. 반대로 안정적으로 머무르며 읽으면 높은
+       점수가 유지된다. 이 점수는 같은 입력이면 같은 결과가 나오도록 재현 가능한 규칙으로 계산된다.</p>
+    <p>점수가 일정 구간 아래로 떨어지면 개입 단계가 올라간다. 75점 아래에서는 핵심 문장을 하이라이트하고,
+       50점 아래에서는 잠시 멈춰 다시 읽기를 권하며, 30점 아래에서는 방금 읽은 내용을 퀴즈로 확인하도록
+       유도한다. 이 모든 판단은 중앙 오케스트레이터가 하나의 세션 상태 위에서 조율한다.</p>
+    <div class="spacer"></div>
+  </article>
+
+  <!-- 확장과 동일한 공용 모듈 로드 -->
+  <script src="../config.js"></script>
+  <script src="../shared/tracker.js"></script>
+  <script src="../shared/overlay.js"></script>
+  <script src="../shared/debug_monitor.js"></script>
+  <script src="../shared/session_client.js"></script>
+  <script>
+    const CFG = window.ALC_CONFIG;
+    const statusEl = document.getElementById("status");
+    const setStatus = (t) => (statusEl.textContent = t);
+
+    const overlay = window.ALC_Overlay.create();
+    let session = null;
+
+    function extract() {
+      const paras = Array.from(document.querySelectorAll("article p"))
+        .map((p) => p.innerText.trim())
+        .filter((t) => t.length > 40);
+      return { title: document.title, url: location.href, type: "web", content: paras };
+    }
+    function getProgress() {
+      const max = document.body.scrollHeight - window.innerHeight;
+      return max > 0 ? window.scrollY / max : 0;
+    }
+
+    document.getElementById("start").onclick = () => {
+      if (session) return;
+      session = window.ALC_Session.create({
+        cfg: CFG, userId: "dev-harness", extract, getProgress, overlay, scrollTarget: window,
+      });
+      session.start().then(() => setStatus("세션 진행 중 — 모니터를 열어보세요"));
+    };
+    document.getElementById("stop").onclick = () => {
+      if (!session) return;
+      session.stop();
+      session = null;
+      setStatus("세션 종료");
+    };
+    document.getElementById("mon").onclick = () => window.ALC_Debug.ensureOpen();
+
+    // 시뮬 버튼 — tracker가 듣는 실제 DOM 이벤트를 발생시켜 정직하게 파이프라인을 탄다.
+    document.getElementById("blur").onclick = () => window.dispatchEvent(new Event("blur"));
+    document.getElementById("focus").onclick = () => window.dispatchEvent(new Event("focus"));
+    document.getElementById("pause").onclick = () => window.scrollBy(0, 1); // 동작 유발 후 idle → pause(설정 시)
+    document.getElementById("fast").onclick = () => {
+      let i = 0;
+      const tick = () => {
+        window.scrollBy(0, 60);
+        window.dispatchEvent(new Event("scroll")); // 간격 ~150ms → 빠른 스크롤 감점
+        if (++i < 5) setTimeout(tick, 150);
+      };
+      tick();
+    };
+  </script>
+</body>
+</html>

@@ -85,6 +85,25 @@ body {
   color: #6b7280;
 }
 
+.pdf-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #cbd2e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #44485a;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.pdf-btn:hover {
+  background: #eef0f8;
+  border-color: #5b6cff;
+}
+
 .status {
   margin-top: 12px;
   font-size: 12px;

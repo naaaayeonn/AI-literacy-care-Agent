@@ -126,6 +126,11 @@ def _normalize_events(events: list[dict]) -> list[ReadingEvent]:
             normalized_event["position"] = max(0.0, min(1.0, float(event["position"])))
         if isinstance(event.get("duration_ms"), int):
             normalized_event["duration_ms"] = max(0, event["duration_ms"])
+        # velocity: 확장 tracker가 계산한 스크롤 속도(px/ms). 3번 calculate_focus_score가
+        # event.velocity 를 읽어 비정상 스크롤(>1.5)을 감점하므로 계약에서 통과시킨다(bool 제외).
+        velocity = event.get("velocity")
+        if isinstance(velocity, (int, float)) and not isinstance(velocity, bool):
+            normalized_event["velocity"] = max(0.0, float(velocity))
         if isinstance(event.get("metadata"), dict):
             normalized_event["metadata"] = event["metadata"]
         normalized.append(normalized_event)

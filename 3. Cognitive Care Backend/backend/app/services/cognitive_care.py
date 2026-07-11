@@ -59,11 +59,11 @@ def calculate_focus_score(events: List[Dict[str, Any]], baseline: Dict[str, int]
             score -= 20.0 + min((duration / 1000.0) * 2.0, 15.0)
 
         elif etype == "scroll":
-            duration = event.get("duration_ms")
             velocity = _scroll_velocity(event)
-            too_fast_interval = duration is not None and duration < 250
+            # 스키밍 판정은 스크롤 속도(velocity)로만 한다. 간격(<250ms) 조건은
+            # 확장 tracker 스로틀(120ms) 탓에 정상 스크롤도 상시 걸려 오검출을 냈다.
             too_fast_velocity = velocity > scroll_threshold
-            if too_fast_interval or too_fast_velocity:
+            if too_fast_velocity:
                 # 스키밍(비정상적으로 빠른 스크롤): 실제로 읽지 않는 신호
                 # 1~2회는 소폭이지만, 지속되면 최근 창(window)을 채워 급격히 하락한다.
                 score -= 8.0

@@ -82,6 +82,15 @@
     if (session) session.stop();
   });
 
+  // 집중도 실시간 모니터 토글(다른 창). 사용자 제스처라 팝업 차단을 피한다.
+  // Ctrl+Shift+F: 열기/닫기. 세션이 진행 중이면 즉시 이벤트가 흐른다.
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === "F" || e.key === "f")) {
+      e.preventDefault();
+      if (window.ALC_Debug) window.ALC_Debug.toggle();
+    }
+  });
+
   async function init() {
     const { enabled = false } = await chrome.storage.local.get("enabled");
     if (enabled) arm();

@@ -37,7 +37,7 @@ def _call_llm_via_snowchat(model: str, prompt: str, system_instruction: str | No
         "model": model,
         "messages": messages,
         "max_tokens": 1024,
-        "temperature": 0.2
+        "temperature": 0.7
     }
     
     req = urllib.request.Request(

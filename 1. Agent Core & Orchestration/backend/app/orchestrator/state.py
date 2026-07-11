@@ -45,6 +45,7 @@ class ReadingEvent(TypedDict):
     timestamp_ms: int
     position: NotRequired[float]
     duration_ms: NotRequired[int]
+    velocity: NotRequired[float]  # scroll 속도(px/ms). 3번 집중도 로직의 비정상 스크롤 감점에 사용
     metadata: NotRequired[dict]
 
 

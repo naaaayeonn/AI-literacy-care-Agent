@@ -36,6 +36,8 @@ window.ALC_Session = (() => {
       }
 
       s.id = data.sessionId;
+      // 디버그 모니터(다른 창)에 세션 연결 통보 — 창이 열려 있을 때만 반영.
+      if (window.ALC_Debug) window.ALC_Debug.attachSession(s.id);
       s.tracker = ALC_Tracker.create({
         getProgress,
         onEvent: enqueue,
@@ -50,6 +52,8 @@ window.ALC_Session = (() => {
 
     function enqueue(evt) {
       s.queue.push(evt);
+      // 집중도 모니터에 원본 이벤트 실시간 전달(창이 열려 있을 때만).
+      if (window.ALC_Debug) window.ALC_Debug.pushEvent(evt);
       // 중요 이벤트는 즉시 flush(개입 반응성 확보)
       if (evt.type === "blur" || evt.type === "pause") flush();
     }
@@ -72,6 +76,8 @@ window.ALC_Session = (() => {
     // 개입 명령(to_intervention_command) → 오버레이
     function render(cmd) {
       const p = (cmd && cmd.payload) || {};
+      // 집중도 모니터에 서버 계산 결과(focusScore·감점 내역) 전달.
+      if (window.ALC_Debug) window.ALC_Debug.pushResponse(cmd);
       // 집중도 배지는 개입 여부와 무관하게 응답마다 항상 갱신(모든 payload에 focusScore 포함).
       if (p.focusScore != null) overlay.badge(p.focusScore);
       switch (cmd && cmd.type) {
@@ -99,6 +105,7 @@ window.ALC_Session = (() => {
           await fetch(`${cfg.API_BASE}/api/session/${s.id}/result`);
         } catch (_) {}
       }
+      if (window.ALC_Debug) window.ALC_Debug.reset();
       overlay.clear();
       s.id = null;
       s.started = false;
