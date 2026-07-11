@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useFocusStore } from '../../stores/focusStore';
 import { useReadingStore } from '../../stores/readingStore';
@@ -19,6 +20,16 @@ export default function RootLayout() {
 
   // 7/11: 로컬 인증 상태 및 온보딩 여부 구독
   const { user, isAuthenticated } = useAuthStore();
+
+  // 7/11: 리액트 렌더 마운트 시 웜 그라데이션 및 바디 투명성 재확증 강제 부여
+  useEffect(() => {
+    try {
+      document.documentElement.style.setProperty('background', 'linear-gradient(180deg, #FAF8F5 0%, #EFEBE0 100%) fixed', 'important');
+      document.body.style.setProperty('background', 'linear-gradient(180deg, #FAF8F5 0%, #EFEBE0 100%) fixed', 'important');
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   return (
     <div
