@@ -15,10 +15,7 @@ import BottomTabBar from '../components/common/BottomTabBar';
 export default function LandingPage() {
   const navigate = useNavigate();
   const userId = useSessionConfig((s) => s.userId);
-  const setMode = useSessionConfig((s) => s.setMode);
   
-  // 7/11: 업로드 유무 검증을 위해 스토어 조회
-  const uploadedContent = useSessionConfig((s) => s.uploadedContent);
   
   // 7/11: 로컬 인증 상태 구독
   const { user, isAuthenticated } = useAuthStore();
@@ -28,13 +25,7 @@ export default function LandingPage() {
   }, []);
 
   const startCare = () => {
-    if (!uploadedContent || uploadedContent.length === 0) {
-      window.alert('분석할 문서가 아직 업로드되지 않았습니다. 먼저 기사 텍스트나 URL을 페이지 업로드 탭에서 등록해 주세요!');
-      navigate('/upload');
-      return;
-    }
-    setMode('care');
-    navigate('/reading');
+    navigate('/upload');
   };
 
 
