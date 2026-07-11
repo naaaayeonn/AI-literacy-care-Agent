@@ -4,7 +4,7 @@
  * 여태껏 업로드한 파일 리스트를 로컬스토리지에 저장하여 마주 읽기 기능을 지원합니다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useSessionConfig } from '../stores/sessionConfigStore';
 import { useReadingStore } from '../stores/readingStore';
 import { Button } from '../components/common/Button';
@@ -57,8 +57,6 @@ const ARTICLES_KEY = 'local_uploaded_articles_db';
 
 export default function UploadPage() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const showExt = params.get('ext') === '1';
 
   const setUpload = useSessionConfig((s) => s.setUpload);
   const setArticle = useReadingStore((s) => s.setArticle);
@@ -279,18 +277,7 @@ export default function UploadPage() {
               </p>
             </div>
 
-            {showExt && (
-              <div
-                className="rounded-lg border p-4 text-sm"
-                style={{ backgroundColor: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}
-              >
-                <div className="font-semibold mb-1">🧩 확장 프로그램으로 실제 브라우징 케어</div>
-                <ol className="list-decimal pl-5 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li>확장 폴더를 <code>chrome://extensions</code> → 개발자 모드 → “로드”로 설치</li>
-                  <li>읽고 싶은 페이지에서 확장 아이콘 → <b>케어 ON</b></li>
-                </ol>
-              </div>
-            )}
+            {/* 7/11: 크롬 확장 설치 안내는 전용 /extension 페이지로 위임하고 이곳은 숨김 처리 */}
 
             <div className="space-y-4">
               {/* PDF 파일 드롭 영역 */}

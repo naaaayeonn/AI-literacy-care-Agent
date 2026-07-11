@@ -78,7 +78,7 @@ export default function LandingPage() {
             desc="크롬 확장 프로그램을 설치하면 내가 실제로 보는 웹페이지나 PDF 문서에서도 실시간 집중도 측정과 퀴즈 개입 케어가 그대로 적용됩니다."
             badge="확장 설치 안내"
             accent="var(--color-primary)"
-            onClick={() => navigate('/upload?ext=1')}
+            onClick={() => navigate('/extension')}
           />
         </div>
 

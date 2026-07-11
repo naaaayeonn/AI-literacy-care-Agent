@@ -6,6 +6,7 @@ import OnboardingPage from '../pages/OnboardingPage';
 import LandingPage from '../pages/LandingPage';
 import UploadPage from '../pages/UploadPage';
 import ProfilePage from '../pages/ProfilePage';
+import ExtensionPage from '../pages/ExtensionPage';
 import { isOnboarded } from '../stores/sessionConfigStore';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
   { path: '/signup', element: <SignUpPage /> },
   { path: '/home', element: <LandingPage /> },
   { path: '/upload', element: <UploadPage /> },
+  { path: '/extension', element: <ExtensionPage /> },
   {
     element: <RootLayout />,
     children: [
