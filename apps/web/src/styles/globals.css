@@ -118,7 +118,14 @@
   }
 }
 
-/* 7/11: ref-reading.png 분위기의 반투명 페이퍼 글래스 필터 레이어 전역 주입 */
-.rounded-xl, .rounded-lg, .rounded-\[var\(--radius-md\)\], [style*="var(--color-surface)"] {
-  backdrop-filter: blur(12px) saturate(120%);
+/* html, body, #root 전체에 웜 그라데이션 배경 강제 주입 */
+html, body, #root {
+  background: linear-gradient(180deg, #FAF8F5 0%, #EFEBE0 100%) fixed !important;
+}
+
+/* 카드 및 컨테이너에 반투명 페이퍼 글래스 필터 레이어 강제 주입 */
+.rounded-xl, .rounded-lg, .rounded-\[var\(--radius-md\)\], [style*="var(--color-surface)"], [style*="var(--bg-paper)"] {
+  background-color: rgba(253, 252, 249, 0.82) !important;
+  backdrop-filter: blur(12px) saturate(120%) !important;
+  border-color: rgba(232, 227, 217, 0.5) !important;
 }
