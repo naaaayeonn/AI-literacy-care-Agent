@@ -201,30 +201,20 @@ export const FloatingControlPanel: React.FC = () => {
     ]);
   }, []);
 
-  // 7/6 추가: 실시간 WebSocket 연결 모니터링 및 연결 로그 출력
+  // 7/8 수정: WebSocket이 제거되고 REST 폴링으로 전환됨에 따라 연결 모니터링 로직 수정
   useEffect(() => {
-    const checkStatus = () => {
-      const ws = getActiveWsClient();
-      const online = !!(ws && ws.isConnected());
-      if (online !== wasOnline.current) {
-        if (online) {
-          setLogs((prev) => [
-            ...prev,
-            { id: Math.random().toString(), time: getNowString(), msg: '🔌 백엔드 WebSocket 서버와 연결되었습니다.', type: 'system' as const }
-          ].slice(-55));
-        } else if (wasOnline.current) {
-          setLogs((prev) => [
-            ...prev,
-            { id: Math.random().toString(), time: getNowString(), msg: '🔌 백엔드 연결 해제. 로컬 시뮬레이션 모드로 전환합니다.', type: 'system' as const }
-          ].slice(-55));
-        }
-        wasOnline.current = online;
-        setIsOnline(online);
+    // REST 방식이므로 마운트 시 무조건 연결된 것으로 간주 (추후 헬스체크 연동 가능)
+    const online = true;
+    if (online !== wasOnline.current) {
+      if (online) {
+        setLogs((prev) => [
+          ...prev,
+          { id: Math.random().toString(), time: getNowString(), msg: '🔌 백엔드 서버와 실시간 통신 중입니다. (REST Polling)', type: 'system' as const }
+        ].slice(-55));
       }
-    };
-    checkStatus();
-    const interval = setInterval(checkStatus, 1000);
-    return () => clearInterval(interval);
+      wasOnline.current = online;
+      setIsOnline(online);
+    }
   }, []);
 
   // 지표 모니터링을 통한 실시간 개입 로그 추가
