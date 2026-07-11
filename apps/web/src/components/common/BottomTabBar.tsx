@@ -1,13 +1,10 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
 
 export default function BottomTabBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const activePath = location.pathname;
-  const { user, isAuthenticated } = useAuthStore();
-
-  const shortId = user?.nickname || '사용자';
+  // 7/11: 탭바 라우팅 제어
 
   return (
     <div
@@ -32,7 +29,7 @@ export default function BottomTabBar() {
         <span className="text-lg">🧠</span> AI 리터러시 케어
       </button>
 
-      {/* 👤 내 프로필 버튼 (Profile) */}
+      {/* 👤 성장 대시보드 버튼 (Profile) */}
       <button
         onClick={() => navigate('/profile')}
         className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-200 text-sm font-semibold cursor-pointer"
@@ -42,8 +39,7 @@ export default function BottomTabBar() {
           border: activePath === '/profile' ? '1px solid var(--color-primary)' : '1px solid transparent',
         }}
       >
-        <span className="text-lg">{isAuthenticated ? '👤' : '🕶️'}</span>
-        {isAuthenticated ? `${shortId}` : '내 프로필'}
+        <span className="text-lg">👤</span> 성장 대시보드
       </button>
     </div>
   );
