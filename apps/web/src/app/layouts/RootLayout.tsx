@@ -53,6 +53,19 @@ export default function RootLayout() {
           {/* 네비게이션 */}
           <nav className="flex items-center gap-1">
             <NavLink
+              to="/reading"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary-tint text-primary'
+                    : 'text-text-secondary hover:text-text hover:bg-surface-alt'
+                }`
+              }
+              style={{ fontFamily: 'var(--font-sans)' } as React.CSSProperties}
+            >
+              📖 읽기
+            </NavLink>
+            <NavLink
               to="/profile"
               className={({ isActive }) =>
                 `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${

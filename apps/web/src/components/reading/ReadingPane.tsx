@@ -128,7 +128,10 @@ export const ReadingPane: React.FC = () => {
     const scrollTop = el.scrollTop;
     const scrollHeight = el.scrollHeight - el.clientHeight;
     const progress = scrollHeight > 0 ? Math.round((scrollTop / scrollHeight) * 100) : 0;
-    const clampedProgress = Math.min(100, Math.max(0, progress));
+    
+    // 7/11: 바닥 30px 이내 닿았거나 진행률이 97% 이상이면 100% 완독으로 보정 처리
+    const isAtBottom = scrollHeight > 0 && (scrollHeight - scrollTop <= 30 || progress >= 97);
+    const clampedProgress = isAtBottom ? 100 : Math.min(100, Math.max(0, progress));
     setProgress(clampedProgress);
 
     const now = Date.now();

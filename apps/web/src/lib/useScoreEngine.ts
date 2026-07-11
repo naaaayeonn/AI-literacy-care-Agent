@@ -98,9 +98,10 @@ export function useScoreEngine() {
 
     appendLivePoint(newPoint);
 
-    // 마지막 포인트에서 literacyScore 스토어도 업데이트
+    // 마지막 포인트에서 literacyScore 스토어도 업데이트 및 세션 완료 상태 확정
     if (milestone === 100) {
       setLiteracyScore(literacy, calcLiveScores().comprehension, calcLiveScores().engagement);
+      useScoreStore.setState({ isFinalized: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress, isFinalized]);
