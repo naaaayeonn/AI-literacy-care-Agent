@@ -508,19 +508,16 @@ async def explain_term(
 @router.post("/reset")
 async def reset_demo_data(db: AsyncSession = Depends(get_db)):
     """전체 데이터베이스 및 Redis 세션 데이터를 완전 초기화하여 시연 리허설 반복 실행을 보장함 (7/13, 7/14)"""
-    from sqlalchemy import delete
-    from ..models.models import ReadingEvent, ReadingSession, User, LiteracyProfile, QuizResult
+    from ..core.db import engine
+    from ..models.models import Base
     
     redis_client = await get_redis()
     
     try:
-        # 1. DB 모든 레코드 삭제
-        await db.execute(delete(QuizResult))
-        await db.execute(delete(ReadingEvent))
-        await db.execute(delete(ReadingSession))
-        await db.execute(delete(LiteracyProfile))
-        await db.execute(delete(User))
-        await db.commit()
+        # DB 모든 테이블을 Drop 후 Recreate하여 스키마 변경 사항(readability_score 등)을 강제 적용
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
         
         # 2. Redis 세션 캐시 버퍼 제거
         # Redis 내의 모든 키를 탐색하여 삭제
