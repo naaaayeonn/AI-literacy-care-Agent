@@ -21,23 +21,29 @@ def generate_ox_quiz(summary: str, paragraph: str, chunk_id: str, session_id: st
     summary_clean = summary.replace("[요약]", "").strip()
     
     if is_even:
-        sentences = re.split(r'(?<=[.!?])\s+', summary_clean)
+        sentences = re.split(r'(?<=[.!?])\s+|\.\s*', summary_clean)
         statement = sentences[0] if sentences else summary_clean
-        if not statement: statement = "본문의 내용을 올바르게 요약했습니다."
+        if not statement: statement = "본문의 핵심 요약 내용과 일치합니다."
+        if len(statement) > 35:
+            statement = statement[:32] + "..."
         answer = True
-        explanation = "요약과 일치합니다."
+        explanation = "원문의 내용 및 요약과 일치하는 올바른 진술입니다."
     else:
         # M5: 의미 없는 고정 진술문 대신 summary를 반전하는 문장 생성
-        sentences = re.split(r'(?<=[.!?])\s+', summary_clean)
+        sentences = re.split(r'(?<=[.!?])\s+|\.\s*', summary_clean)
         statement = sentences[0] if sentences else summary_clean
         if not statement: 
-            statement = "이 문단은 앞의 내용과 반대됩니다."
+            statement = "이 문단의 설명과 일치하지 않습니다."
         else:
+            if len(statement) > 35:
+                statement = statement[:32] + "..."
             # 아주 간단한 반전 (서술어 변경)
             if statement.endswith("다."):
                 statement = statement[:-2] + "지 않는다."
+            elif statement.endswith("다"):
+                statement = statement[:-1] + "지 않는다."
             else:
-                statement = statement + " (거짓)"
+                statement = statement + " (사실과 다름)"
         answer = False
         explanation = "원문의 내용과 다른 진술입니다."
 

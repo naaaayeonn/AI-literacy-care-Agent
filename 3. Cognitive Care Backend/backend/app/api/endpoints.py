@@ -211,8 +211,8 @@ async def process_events(session_id: str, req: EventsRequestModel):
                     await redis_client.set(f"session:{session_id}:quizzes", json.dumps(state["quizzes"]))
                     
                     if selected_quizzes:
-                        # [M3] 한 번에 최대 1개만 반환하도록 제한
-                        selected_quiz = [selected_quizzes[0]]
+                        # [M3] 3문제 띄워주기 위해 최대 3개 반환
+                        selected_quiz = selected_quizzes[:3]
                         state["intervention"]["quiz_data"] = selected_quiz
                         
                         # 출제 기록 업데이트
