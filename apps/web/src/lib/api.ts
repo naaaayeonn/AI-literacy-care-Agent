@@ -115,6 +115,23 @@ export interface BadgeData {
   acquiredAt: string;          // ISO date string
 }
 
+// 문해 5대 지표(레이더). 각 0~100. score.py compute_literacy_domains 산출.
+export interface LiteracyDomains {
+  comprehension: number;  // 이해도 (퀴즈 정답률)
+  focus: number;          // 집중 유지 (focus)
+  closeReading: number;   // 정독 충실도 (본문 완독률)
+  challenge: number;      // 난이도 도전력 (이해도 × 난이도)
+  stability: number;      // 읽기 안정성 (감점, 이독성 보정)
+}
+
+// 글 프로필(사용자 역량 아님) — 이독성/난이도 + 라벨.
+export interface TextProfile {
+  readability: number;        // 0~100, 높을수록 읽기 쉬움
+  difficulty: number;         // 0~100, 높을수록 어려움(전문성)
+  readabilityLabel: string;   // 복잡 / 보통 / 매끄러움
+  difficultyLabel: string;    // 쉬움 / 보통 / 어려움 / 전문
+}
+
 export interface SessionResultResponse {
   sessionId: string;
   literacyScore: number;       // 0~100 최종 합산
@@ -128,6 +145,8 @@ export interface SessionResultResponse {
   scoreSeries: ScoreSeriesPoint[];  // Recharts용 시계열 데이터
   badges: BadgeData[];         // 이번 세션에서 획득한 배지
   sessionDurationMs: number;   // 총 읽기 시간
+  literacyDomains?: LiteracyDomains;  // 문해 5대 지표(레이더)
+  textProfile?: TextProfile;          // 글 프로필(이독성/난이도)
 }
 
 export interface GrowthReportResponse {

@@ -66,9 +66,9 @@ def test_reading_session_api_e2e_flow():
     finish_body = finish.json()
     assert finish_body["session_id"] == "api_s1"
     assert finish_body["intervention"]["type"] == "highlight"
-    assert finish_body["literacy_score"] == 64.0
-    assert finish_body["reward"]["badge"] == "steady_reader"
-    assert finish_body["updated_profile"]["trend"] == "improving"
+    assert finish_body["literacy_score"] == 59.6
+    assert finish_body["reward"]["badge"] == "needs_support"
+    assert finish_body["updated_profile"]["trend"] == "stable"
     assert [entry["step"] for entry in finish_body["trace"][-7:]] == [
         "content_reducer",
         "cognitive_care",

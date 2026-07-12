@@ -106,6 +106,10 @@ def to_session_result(state: ReadingSessionState) -> dict[str, Any]:
         ],
         "badges": _badges(reward),
         "sessionDurationMs": _session_duration_ms(state),
+        # 문해 5대 지표(레이더) — score.py compute_literacy_domains 산출.
+        "literacyDomains": state.get("literacy_domains") or breakdown.get("literacy_domains") or {},
+        # 글 프로필(이독성/난이도/라벨) — 4번 게이지·뇌아이콘용.
+        "textProfile": state.get("text_profile") or breakdown.get("text_profile") or {},
         # 5번 QA 평가 리포트("검증 가능한 시스템" 근거). 없으면 None.
         "qaEvaluation": _qa_evaluation(state),
     }

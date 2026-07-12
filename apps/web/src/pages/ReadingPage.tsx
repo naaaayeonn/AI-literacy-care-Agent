@@ -98,6 +98,8 @@ export default function ReadingPage() {
                   literacyScore: scoreResult.literacyScore,
                   comprehensionScore: scoreResult.comprehensionScore,
                   engagementScore: scoreResult.engagementScore,
+                  literacyDomains: scoreResult.literacyDomains ?? null,
+                  textProfile: scoreResult.textProfile ?? null,
                   xp: scoreResult.totalXp,
                   level: scoreResult.level,
                   scoreSeries: scoreResult.scoreSeries.map((s) => ({

@@ -122,6 +122,9 @@ def to_session_result(state: ReadingSessionState) -> dict[str, Any]:
         ],
         "badges": _badges(reward),
         "sessionDurationMs": _session_duration_ms(state),
+        # 문해 5대 지표(레이더) + 글 프로필(이독성/난이도) — score.py 산출.
+        "literacyDomains": state.get("literacy_domains") or breakdown.get("literacy_domains") or {},
+        "textProfile": state.get("text_profile") or breakdown.get("text_profile") or {},
     }
 
 

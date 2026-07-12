@@ -7,6 +7,7 @@
  */
 import { create } from 'zustand';
 import type { ScoreDataPoint, AcquiredBadge } from '../types/shared';
+import type { LiteracyDomains, TextProfile } from '../lib/api';
 
 // ── 타입 ──────────────────────────────────────────────────────────────
 export interface QuizResult {
@@ -27,6 +28,10 @@ interface ScoreState {
   weeklyScoreSeries: ScoreDataPoint[]; // 주간 요일 데이터 (대시보드 차트용)
   badges: AcquiredBadge[];
   isFinalized: boolean; // 세션 최종 서버 점수 갱신 후 가드용 플래그
+
+  // 7/13: 세션 최종 결과의 문해 5대 지표 + 글 프로필(서버 산출). 미수신 시 null.
+  literacyDomains: LiteracyDomains | null;
+  textProfile: TextProfile | null;
 
   // 6/26 추가: 현재 세션 퀴즈 결과 목록
   quizResults: QuizResult[];
@@ -88,6 +93,8 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
   badges: [],
   quizResults: [],
   isFinalized: false,
+  literacyDomains: null,
+  textProfile: null,
 
   // ── 기존 액션 ──
   setLiteracyScore: (literacyScore, comprehensionScore, engagementScore) =>

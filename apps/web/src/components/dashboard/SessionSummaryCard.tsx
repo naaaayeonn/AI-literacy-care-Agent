@@ -18,7 +18,7 @@ interface SessionSummaryCardProps {
 }
 
 export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({ isVisible }) => {
-  const { literacyScore, comprehensionScore, engagementScore, xp, quizResults, badges } = useScoreStore();
+  const { literacyScore, comprehensionScore, engagementScore, xp, quizResults, badges, textProfile } = useScoreStore();
 
   const correctCount = quizResults.filter((r) => r.correct).length;
   const quizAccuracy = quizResults.length > 0
@@ -72,6 +72,19 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({ isVisibl
           </div>
 
           <div style={{ padding: 'var(--space-6)' }}>
+            {/* 글 프로필: 이 글이 어떤 글인지(이독성/난이도) — 2번 독립변수, score.py textProfile */}
+            {textProfile && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 'var(--radius-full)',
+                  backgroundColor: 'var(--color-primary-tint)', color: 'var(--color-primary)', fontWeight: 600 }}>
+                  ✍️ 이독성 {Math.round(textProfile.readability)} · {textProfile.readabilityLabel}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', padding: '4px 10px', borderRadius: 'var(--radius-full)',
+                  backgroundColor: 'var(--color-nudge-medium-tint)', color: 'var(--color-nudge-medium)', fontWeight: 600 }}>
+                  🧠 난이도 {Math.round(textProfile.difficulty)} · {textProfile.difficultyLabel}
+                </span>
+              </div>
+            )}
             {/* 요약 지표 행 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
               <MiniMetric label="이해도" value={`${comprehensionScore}점`} color="var(--color-comprehension)"

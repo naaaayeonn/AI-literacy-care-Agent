@@ -26,7 +26,7 @@ def test_run_m1_demo_smoke_result_is_repeatable():
         "reason": "focus_score=39.0",
         "target_chunk_id": "chunk_01",
     }
-    assert result["literacy_score"] == 55.6
+    assert result["literacy_score"] == 51.9
     assert result["score_breakdown"]["penalty_breakdown"] == {
         "blur_count": 2,
         "fast_scroll_count": 2,

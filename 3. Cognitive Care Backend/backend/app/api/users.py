@@ -90,14 +90,28 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     after_comp = sum((s.comprehension_score or 50.0) for s in sessions) / len(sessions)
     after_lit = sum((s.literacy_score or 50.0) for s in sessions) / len(sessions)
 
-    # 5대 지표 매핑 (어휘력, 독해 속도, 정독율, 추론 능력, 집중 유지)
-    radar_data = [
-        {"subject": '어휘력',   "before": min(100, max(30, int(before_lit - 5))), "after": min(100, max(30, int(after_lit + 3)))},
-        {"subject": '독해 속도', "before": min(100, max(30, int(before_eng - 8))), "after": min(100, max(30, int(after_eng)))},
-        {"subject": '정독율',   "before": min(100, max(30, int(before_comp - 5))), "after": min(100, max(30, int(after_comp + 2)))},
-        {"subject": '추론 능력', "before": min(100, max(30, int((before_lit + before_comp)/2 - 6))), "after": min(100, max(30, int((after_lit + after_comp)/2 + 2)))},
-        {"subject": '집중 유지', "before": min(100, max(30, int(before_eng - 10))), "after": min(100, max(30, int(after_eng + 4)))},
+    # 문해 5대 지표(v2): 저장된 literacy_domains 실측 평균. before=첫 세션, after=전체 평균.
+    # (어휘력/추론능력 등 가짜 +offset 매핑 폐기 → 우리가 실제 측정하는 신호로 정직하게 파생)
+    DOMAIN_LABELS = [
+        ("comprehension", "이해도"),
+        ("focus", "집중 유지"),
+        ("closeReading", "정독 충실도"),
+        ("challenge", "난이도 도전력"),
+        ("stability", "읽기 안정성"),
     ]
+    dsessions = [s for s in sorted_sessions if isinstance(s.literacy_domains, dict) and s.literacy_domains]
+
+    def _dom(sess, key: str) -> float:
+        return float((sess.literacy_domains or {}).get(key, 0) or 0)
+
+    radar_data = []
+    for key, label in DOMAIN_LABELS:
+        if dsessions:
+            after = round(sum(_dom(s, key) for s in dsessions) / len(dsessions), 1)
+            before = round(_dom(dsessions[0], key), 1)
+        else:
+            after = before = 0.0
+        radar_data.append({"subject": label, "before": before, "after": after})
 
     # M6: 어휘 보드 실데이터 연동 (가장 최근 세션의 cached chunks에서 어휘 추출)
     latest_session = sorted_sessions[-1]
@@ -146,8 +160,8 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
             사용자의 독해 학습 데이터:
             - 총 독해 시간: {total_duration_mins}분
             - 총 획득 XP: {total_xp}
-            - 평균 집중도: {avg_eng:.1f}점
-            - 평균 이해도: {avg_comp:.1f}점
+            - 평균 집중도: {after_eng:.1f}점
+            - 평균 이해도: {after_comp:.1f}점
             - 찾아본 단어 수: {len(words_data)}개
 
             위 데이터를 바탕으로 사용자에게 '주간 성장 처방전'을 작성해주세요.
@@ -194,11 +208,11 @@ def generate_empty_growth_report():
     return {
         "weekly": {
             "radarData": [
-                {"subject": '어휘력', "before": 0, "after": 0},
-                {"subject": '독해 속도', "before": 0, "after": 0},
-                {"subject": '정독율', "before": 0, "after": 0},
-                {"subject": '추론 능력', "before": 0, "after": 0},
+                {"subject": '이해도', "before": 0, "after": 0},
                 {"subject": '집중 유지', "before": 0, "after": 0},
+                {"subject": '정독 충실도', "before": 0, "after": 0},
+                {"subject": '난이도 도전력', "before": 0, "after": 0},
+                {"subject": '읽기 안정성', "before": 0, "after": 0},
             ],
             "activityData": [],
             "words": [],

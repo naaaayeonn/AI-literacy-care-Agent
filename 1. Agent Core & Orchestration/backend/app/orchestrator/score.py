@@ -1,4 +1,16 @@
-"""Literacy Score v1 calculation for the orchestrator core."""
+"""Literacy Score v2 계산 — 근거 있는 가중식.
+
+리터러시 점수 = 이해도(0.45) + 집중도(0.30) + 도전성취(0.25) − 교차검증 감점
+
+- 이해도(comprehension): O/X 퀴즈 정답률 실측(없으면 완독률 프록시).
+- 집중도(engagement): 이벤트 기반 focus.
+- 도전성취(challenge_achievement): **이해한 만큼 × 글이 어려운 만큼**.
+    글난이도(text_challenge) = 0.6·난이도(difficulty) + 0.4·비이독성(100−readability).
+    → 2번의 **난이도**와 **이독성**을 둘 다 반영. 쉬운 글 완독보다 어려운 글 이해를 높게 평가.
+- 교차검증 감점: 비정상 읽기(스키밍/이탈/무동작).
+
+문해 5대 지표(compute_literacy_domains)와 글 프로필(compute_text_profile)도 함께 산출한다.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +19,17 @@ import math
 from .quiz import quiz_correct_rate
 from .state import ReadingEvent, ReadingSessionState, ScoreBreakdown
 
+# 가중치(합 1.0). 이해도 우선, 집중, 도전성취 순.
+COMPREHENSION_WEIGHT = 0.45
+ENGAGEMENT_WEIGHT = 0.30
+CHALLENGE_WEIGHT = 0.25
+
 
 def calculate_literacy_score(state: ReadingSessionState) -> ReadingSessionState:
-    """Fill comprehension_score, literacy_score, and score_breakdown."""
+    """Fill comprehension_score, literacy_score, score_breakdown, literacy_domains, text_profile."""
     focus_score = float(state.get("focus_score", 60.0))
     difficulty_score = float(state.get("difficulty_score", 50.0))
+    readability_score = float(state.get("readability_score", 50.0))
     penalty, penalty_breakdown = abnormal_reading_penalty(state.get("reading_events", []))
 
     comp_rate, measured, confidence, quiz_count = _comprehension_rate(state)
@@ -20,15 +38,24 @@ def calculate_literacy_score(state: ReadingSessionState) -> ReadingSessionState:
         quiz_correct_rate=comp_rate,
         focus_score=focus_score,
         difficulty_score=difficulty_score,
+        readability_score=readability_score,
         abnormal_reading_penalty=penalty,
         penalty_breakdown=penalty_breakdown,
     )
     breakdown["comprehension_measured"] = measured
     breakdown["comprehension_confidence"] = confidence
     breakdown["quiz_count"] = quiz_count
+
+    domains = compute_literacy_domains(state, breakdown)
+    text_profile = compute_text_profile(state)
+    breakdown["literacy_domains"] = domains
+    breakdown["text_profile"] = text_profile
+
     state["comprehension_score"] = breakdown["comprehension_score"]
     state["literacy_score"] = literacy_score
     state["score_breakdown"] = breakdown
+    state["literacy_domains"] = domains
+    state["text_profile"] = text_profile
     return state
 
 
@@ -75,20 +102,27 @@ def compute_score(
     quiz_correct_rate: float,
     focus_score: float,
     difficulty_score: float,
+    readability_score: float = 50.0,
     abnormal_reading_penalty: float = 0.0,
     penalty_breakdown: dict | None = None,
 ) -> tuple[float, ScoreBreakdown]:
-    """Compute a reproducible 0-100 literacy score and its evidence."""
-    quiz_correct_rate = _clamp(_finite(quiz_correct_rate, default=0.0), 0.0, 1.0)
-    comprehension_score = quiz_correct_rate * 100.0
+    """Compute a reproducible 0-100 literacy score and its evidence (v2, 난이도·이독성 반영)."""
+    comp_rate = _clamp(_finite(quiz_correct_rate, default=0.0), 0.0, 1.0)
+    comprehension_score = comp_rate * 100.0
     engagement_score = _clamp(_finite(focus_score, default=60.0), 0.0, 100.0)
-    normalized_difficulty_score = _clamp(_finite(difficulty_score, default=50.0), 0.0, 100.0)
+    difficulty = _clamp(_finite(difficulty_score, default=50.0), 0.0, 100.0)
+    readability = _clamp(_finite(readability_score, default=50.0), 0.0, 100.0)
     penalty = _clamp(_finite(abnormal_reading_penalty, default=0.0), 0.0, 100.0)
 
+    # 글이 얼마나 도전적이었나: 난이도(전문성)↑ + 비이독성(문장 어려움)↑ = 더 어려움.
+    text_challenge = _clamp(0.6 * difficulty + 0.4 * (100.0 - readability), 0.0, 100.0)
+    # 도전 성취: 이해한 만큼 × 도전적인 만큼. (쉬운 글 완독 < 어려운 글 이해)
+    challenge_achievement = _clamp(comp_rate * text_challenge, 0.0, 100.0)
+
     literacy_score = (
-        comprehension_score * 0.50
-        + engagement_score * 0.35
-        + normalized_difficulty_score * 0.15
+        comprehension_score * COMPREHENSION_WEIGHT
+        + engagement_score * ENGAGEMENT_WEIGHT
+        + challenge_achievement * CHALLENGE_WEIGHT
         - penalty
     )
     literacy_score = round(_clamp(literacy_score, 0.0, 100.0), 1)
@@ -96,17 +130,90 @@ def compute_score(
     breakdown = ScoreBreakdown(
         comprehension_score=round(comprehension_score, 1),
         engagement_score=round(engagement_score, 1),
-        difficulty_score=round(normalized_difficulty_score, 1),
+        difficulty_score=round(difficulty, 1),
+        readability_score=round(readability, 1),
+        text_challenge=round(text_challenge, 1),
+        challenge_achievement=round(challenge_achievement, 1),
         cross_validation_penalty=round(penalty, 1),
         penalty_breakdown=penalty_breakdown or {},
         reason=(
-            f"Literacy score = comprehension({comprehension_score:.1f})*0.50 "
-            f"+ engagement({engagement_score:.1f})*0.35 "
-            f"+ difficulty({normalized_difficulty_score:.1f})*0.15 "
-            f"- penalty({penalty:.1f})."
+            f"Literacy = comprehension({comprehension_score:.1f})*{COMPREHENSION_WEIGHT} "
+            f"+ engagement({engagement_score:.1f})*{ENGAGEMENT_WEIGHT} "
+            f"+ challenge({challenge_achievement:.1f})*{CHALLENGE_WEIGHT} "
+            f"- penalty({penalty:.1f}). "
+            f"challenge = comp_rate({comp_rate:.2f}) x text_challenge({text_challenge:.1f}"
+            f"=0.6*diff{difficulty:.0f}+0.4*(100-read{readability:.0f}))."
         ),
     )
     return literacy_score, breakdown
+
+
+# ──────────────────────────────────────────────
+# 문해 5대 지표 (v2) — 전부 실측 신호 파생
+# ──────────────────────────────────────────────
+
+
+def compute_literacy_domains(state: ReadingSessionState, breakdown: ScoreBreakdown) -> dict:
+    """레이더용 5대 지표(각 0~100). 라벨은 프론트가 매핑.
+
+    - comprehension 이해도       : 퀴즈 정답률
+    - focus         집중 유지     : engagement(focus)
+    - closeReading  정독 충실도   : 본문 완독률(§4 position max)
+    - challenge     난이도 도전력 : 이해도 × 난이도(difficulty)  ← 어려운 글 이해할수록↑
+    - stability     읽기 안정성   : 100 − 감점(이독성 낮은 글은 완화)  ← readability 반영
+    """
+    comp = _num(breakdown.get("comprehension_score"), 0.0)
+    eng = _num(breakdown.get("engagement_score"), 0.0)
+    difficulty = _num(breakdown.get("difficulty_score"), 50.0)
+    readability = _num(breakdown.get("readability_score"), 50.0)
+    penalty = _num(breakdown.get("cross_validation_penalty"), 0.0)
+
+    close_reading = _completion_rate(state.get("reading_events", [])) * 100.0
+    challenge = (comp / 100.0) * difficulty
+
+    # 이독성이 낮은(어려운) 글에서 느리게·재독하는 건 자연스러우니 감점을 완화한다.
+    penalty_pct = min(100.0, penalty * 5.0)  # penalty(0~20) → 0~100
+    softener = 0.5 + 0.5 * (readability / 100.0)  # read 0→0.5, 100→1.0
+    stability = _clamp(100.0 - penalty_pct * softener, 0.0, 100.0)
+
+    return {
+        "comprehension": round(_clamp(comp, 0.0, 100.0), 1),
+        "focus": round(_clamp(eng, 0.0, 100.0), 1),
+        "closeReading": round(_clamp(close_reading, 0.0, 100.0), 1),
+        "challenge": round(_clamp(challenge, 0.0, 100.0), 1),
+        "stability": round(stability, 1),
+    }
+
+
+def compute_text_profile(state: ReadingSessionState) -> dict:
+    """글 자체의 프로필(사용자 역량 아님) — 이독성/난이도 + 라벨. 4번 게이지·뇌아이콘용."""
+    readability = _clamp(_num(state.get("readability_score"), 50.0), 0.0, 100.0)
+    difficulty = _clamp(_num(state.get("difficulty_score"), 50.0), 0.0, 100.0)
+    return {
+        "readability": round(readability, 1),
+        "difficulty": round(difficulty, 1),
+        "readabilityLabel": _readability_label(readability),
+        "difficultyLabel": _difficulty_label(difficulty),
+    }
+
+
+def _difficulty_label(d: float) -> str:
+    if d < 25:
+        return "쉬움"
+    if d < 50:
+        return "보통"
+    if d < 75:
+        return "어려움"
+    return "전문"
+
+
+def _readability_label(r: float) -> str:
+    # 높을수록 읽기 쉬움.
+    if r < 40:
+        return "복잡"
+    if r < 70:
+        return "보통"
+    return "매끄러움"
 
 
 def abnormal_reading_penalty(events: list[ReadingEvent]) -> tuple[float, dict]:
@@ -144,6 +251,10 @@ def abnormal_reading_penalty(events: list[ReadingEvent]) -> tuple[float, dict]:
         "max_penalty": 20.0,
         "applied_penalty": total_penalty,
     }
+
+
+def _num(value: object, default: float = 0.0) -> float:
+    return _finite(value, default=default)
 
 
 def _finite(value: float, *, default: float) -> float:

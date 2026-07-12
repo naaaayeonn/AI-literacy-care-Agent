@@ -67,6 +67,12 @@ class ScoreBreakdown(TypedDict):
     engagement_score: float
     difficulty_score: float
     cross_validation_penalty: float
+    # v2: 2번 이독성 + 난이도로 파생한 도전성취 근거값
+    readability_score: NotRequired[float]
+    text_challenge: NotRequired[float]        # 0.6*난이도 + 0.4*(100-이독성)
+    challenge_achievement: NotRequired[float]  # 이해율 × text_challenge
+    literacy_domains: NotRequired[dict]        # 문해 5대 지표(레이더)
+    text_profile: NotRequired[dict]            # 글 프로필(이독성/난이도/라벨)
     penalty_breakdown: NotRequired[dict]
     reason: NotRequired[str]
     # 이해도 실측 여부: quiz_answers/quiz_result가 있으면 True(실측), 없으면 완독률 프록시(추정).
@@ -127,7 +133,8 @@ class ReadingSessionState(TypedDict):
     chunks: NotRequired[list[dict]]
     simplified_text: NotRequired[str]
     terms: NotRequired[list[dict]]
-    difficulty_score: NotRequired[float]
+    difficulty_score: NotRequired[float]   # 0~100, 높을수록 어려움(전문용어 밀도)
+    readability_score: NotRequired[float]  # 0~100, 높을수록 읽기 쉬움(이독성) — 2번 독립변수
 
     # --- 3번 Cognitive Care 산출 ---
     reading_events: list[ReadingEvent]
@@ -146,6 +153,8 @@ class ReadingSessionState(TypedDict):
     comprehension_score: NotRequired[float]
     literacy_score: NotRequired[float]
     score_breakdown: NotRequired[ScoreBreakdown]
+    literacy_domains: NotRequired[dict]  # 문해 5대 지표(레이더): comprehension/focus/closeReading/challenge/stability
+    text_profile: NotRequired[dict]      # 글 프로필: readability/difficulty/labels
 
     # --- 4번 Reward / 5번 Profile 산출 ---
     reward: NotRequired[dict]

@@ -63,6 +63,15 @@ class ScoreBreakdown(TypedDict):
     engagement_score: float
     difficulty_score: float
     cross_validation_penalty: float
+    readability_score: NotRequired[float]
+    text_challenge: NotRequired[float]
+    challenge_achievement: NotRequired[float]
+    literacy_domains: NotRequired[dict]
+    text_profile: NotRequired[dict]
+    comprehension_measured: NotRequired[bool]
+    comprehension_confidence: NotRequired[str]
+    quiz_count: NotRequired[int]
+    penalty_breakdown: NotRequired[dict]
     reason: NotRequired[str]
 
 
@@ -95,6 +104,7 @@ class ReadingSessionState(TypedDict):
     simplified_text: NotRequired[str]
     terms: NotRequired[list[dict]]
     difficulty_score: NotRequired[float]
+    readability_score: NotRequired[float]  # 2번 이독성 독립변수
 
     # --- 3번 Cognitive Care 산출 ---
     reading_events: list[ReadingEvent]
@@ -107,8 +117,11 @@ class ReadingSessionState(TypedDict):
     # --- 퀴즈 / 1번 Score Engine 산출 ---
     quiz_result: NotRequired[QuizResult]
     comprehension_score: NotRequired[float]
+    quiz_answers: NotRequired[list]
     literacy_score: NotRequired[float]
     score_breakdown: NotRequired[ScoreBreakdown]
+    literacy_domains: NotRequired[dict]
+    text_profile: NotRequired[dict]
 
     # --- 4번 Reward / 5번 Profile 산출 ---
     reward: NotRequired[dict]

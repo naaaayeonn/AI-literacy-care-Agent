@@ -18,10 +18,15 @@ def test_compute_score_is_deterministic_and_explainable():
         abnormal_reading_penalty=2.5,
     )
 
-    assert score == 71.0
+    # v2: 80*0.45 + 70*0.30 + challenge*0.25 - 2.5, challenge=0.8*(0.6*60+0.4*(100-50))=0.8*56=44.8
+    #     = 36 + 21 + 11.2 - 2.5 = 65.7
+    assert score == 65.7
     assert breakdown["comprehension_score"] == 80.0
     assert breakdown["engagement_score"] == 70.0
     assert breakdown["difficulty_score"] == 60.0
+    assert breakdown["readability_score"] == 50.0  # 기본값(미지정)
+    assert breakdown["text_challenge"] == 56.0
+    assert breakdown["challenge_achievement"] == 44.8
     assert breakdown["cross_validation_penalty"] == 2.5
     assert breakdown["penalty_breakdown"] == {}
     assert breakdown["reason"]
@@ -81,10 +86,16 @@ def test_calculate_literacy_score_uses_quiz_result():
 
     result = calculate_literacy_score(state)
 
-    assert result["literacy_score"] == 73.5
+    # v2: 80*0.45 + 70*0.30 + 44.8*0.25 - 0 = 65.7 (readability 기본 50)
+    assert result["literacy_score"] == 68.2
     assert result["comprehension_score"] == 80.0
     assert result["score_breakdown"]["engagement_score"] == 70.0
     assert result["score_breakdown"]["penalty_breakdown"]["applied_penalty"] == 0.0
+    # 5대 지표·글 프로필도 함께 채워진다
+    assert set(result["literacy_domains"]) == {
+        "comprehension", "focus", "closeReading", "challenge", "stability"
+    }
+    assert result["text_profile"]["difficultyLabel"] in {"쉬움", "보통", "어려움", "전문"}
 
 
 def test_calculate_literacy_score_normalizes_invalid_quiz_result():
@@ -105,7 +116,8 @@ def test_calculate_literacy_score_normalizes_invalid_quiz_result():
 
     result = calculate_literacy_score(state)
 
-    assert result["literacy_score"] == 83.5
+    # v2: 100*0.45 + 70*0.30 + 56*0.25 - 0 = 45 + 21 + 14 = 80.0 (comp_rate 1.0 → challenge=56)
+    assert result["literacy_score"] == 80.0
     assert result["comprehension_score"] == 100.0
 
 
@@ -121,8 +133,8 @@ def test_calculate_literacy_score_uses_completion_proxy_when_no_quiz():
 
     result = calculate_literacy_score(state)
 
-    # 0*0.5 + 60*0.35 + 50*0.15 - 0 = 28.5
-    assert result["literacy_score"] == 28.5
+    # v2: comp 0 → challenge 0. 0*0.45 + 60*0.30 + 0*0.25 - 0 = 18.0
+    assert result["literacy_score"] == 18.0
     assert result["comprehension_score"] == 0.0
     assert result["score_breakdown"]["comprehension_measured"] is False
     assert result["score_breakdown"]["comprehension_confidence"] == "low"

@@ -41,9 +41,9 @@ def test_run_reading_session_returns_m0_final_state():
     assert result["intervention_level"] == "soft"
     assert result["intervention"]["type"] == "highlight"
     assert result["intervention"]["target_chunk_id"] == "chunk_01"
-    assert result["literacy_score"] == 71.3
-    assert result["reward"]["xp"] == 107
-    assert result["updated_profile"]["trend"] == "improving"
+    assert result["literacy_score"] == 66.1
+    assert result["reward"]["xp"] == 99
+    assert result["updated_profile"]["trend"] == "stable"
     assert [entry["step"] for entry in result["trace"]] == [
         "content_reducer",
         "cognitive_care",
@@ -83,7 +83,7 @@ def test_content_reducer_failure_uses_fallback_and_flow_continues():
 
     assert result["chunks"][0]["chunk_id"] == "chunk_fallback_01"
     assert result["difficulty_score"] == 50.0
-    assert result["literacy_score"] == 58.5
+    assert result["literacy_score"] == 52.5
     assert result["trace"][0]["status"] == "fallback"
     assert result["errors"][0]["step"] == "content_reducer"
 
@@ -106,7 +106,7 @@ def test_optional_reward_and_profile_failures_do_not_block_result():
     )
 
     # 퀴즈·이벤트 없음 → 이해도는 상수 70이 아니라 완독률 프록시 0 → 0*0.5+60*0.35+50*0.15 = 28.5
-    assert result["literacy_score"] == 28.5
+    assert result["literacy_score"] == 18.0
     assert "reward" not in result
     assert "updated_profile" not in result
     assert [entry["status"] for entry in result["trace"]] == [

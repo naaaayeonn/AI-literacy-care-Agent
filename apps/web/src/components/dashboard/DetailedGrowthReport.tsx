@@ -105,6 +105,16 @@ export default function DetailedGrowthReport() {
   const currentActivityData = tab === 'weekly' ? data.weekly.activityData : data.monthly.activityData;
   const currentWords = tab === 'weekly' ? data.weekly.words : data.monthly.words;
 
+  // 핵심 성장 성과: 레이더에서 before→after 증가폭이 가장 큰 지표를 실데이터로 도출(하드코딩 폐기).
+  const topGrowth = currentRadarData.reduce(
+    (best, d) => (d.after - d.before > best.delta ? { subject: d.subject, delta: d.after - d.before } : best),
+    { subject: '', delta: -Infinity }
+  );
+  const topGrowthLabel =
+    topGrowth.subject && topGrowth.delta > 0
+      ? `${topGrowth.subject} +${topGrowth.delta.toFixed(1)}점 성장`
+      : '데이터 축적 중';
+
   return (
     <Card variant="default" className="p-6 space-y-6">
       {/* ── 헤더 & 탭 전환 ── */}
@@ -318,7 +328,7 @@ export default function DetailedGrowthReport() {
               <div className="mt-4 pt-4 border-t border-[var(--color-border)] flex items-center justify-between text-xs font-semibold">
                 <span style={{ color: 'var(--color-text-secondary)' }}>핵심 성장 성과</span>
                 <span className="text-[var(--color-growth)]">
-                  {tab === 'weekly' ? '어휘력 단기 폭풍 성장 (+35.4%)' : '문장 변환 의존성 대폭 감소 (-50%)'}
+                  {topGrowthLabel}
                 </span>
               </div>
             </div>

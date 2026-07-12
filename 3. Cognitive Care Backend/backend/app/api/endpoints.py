@@ -105,6 +105,11 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
     redis_client = await get_redis()
     await redis_client.set(f"session:{session_id}:quizzes", json.dumps(quizzes))
     await redis_client.set(f"session:{session_id}:chunks", json.dumps(updated_state.get("chunks", [])))
+    # 글 난이도/이독성(문서 레벨) 보관 → /result 점수 계산 시 재사용(도전력 도메인 품질).
+    await redis_client.set(f"session:{session_id}:textmeta", json.dumps({
+        "difficulty_score": updated_state.get("difficulty_score", 50.0),
+        "readability_score": updated_state.get("readability_score", 50.0),
+    }))
     
     return SessionStartResponse(
         sessionId=session_id, 
@@ -407,7 +412,17 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
             raw_text=""
         )
         initial_state["reading_events"] = state_events
-        
+
+        # 글 난이도/이독성 복원(/start에서 보관) → 도전력 도메인·글 프로필이 실제 글 기준으로 계산됨.
+        textmeta_raw = await redis_client.get(f"session:{session_id}:textmeta")
+        if textmeta_raw:
+            try:
+                tm = json.loads(textmeta_raw)
+                initial_state["difficulty_score"] = tm.get("difficulty_score", 50.0)
+                initial_state["readability_score"] = tm.get("readability_score", 50.0)
+            except Exception:
+                pass
+
         # Q1/Q2: Redis에서 실제 퀴즈 채점 결과 읽기 (stub 제거)
         quiz_key = f"session:{session_id}:quiz_result"
         quiz_raw = await redis_client.get(quiz_key)
@@ -437,7 +452,10 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
         score_breakdown = final_state.get("score_breakdown", {})
         session.comprehension_score = score_breakdown.get("comprehension_score", 50.0)
         session.engagement_score = score_breakdown.get("engagement_score", 50.0)
-        
+        # 이독성 + 문해 5대 지표 저장(대시보드 레이더의 실데이터 소스)
+        session.readability_score = score_breakdown.get("readability_score", 50.0)
+        session.literacy_domains = final_state.get("literacy_domains") or score_breakdown.get("literacy_domains")
+
         # duration_seconds 계산 (첫 이벤트와 마지막 이벤트의 timestamp 차이)
         if state_events:
             start_ts = state_events[0].get("timestamp_ms", 0)

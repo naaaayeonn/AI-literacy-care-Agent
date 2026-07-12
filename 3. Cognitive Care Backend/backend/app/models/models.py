@@ -18,6 +18,8 @@ class ReadingSession(Base):
     comprehension_score = Column(Float, nullable=True)
     engagement_score = Column(Float, nullable=True)
     difficulty_score = Column(Float, nullable=True, default=50.0)
+    readability_score = Column(Float, nullable=True, default=50.0)  # 2번 이독성(독립변수)
+    literacy_domains = Column(JSON, nullable=True)  # 문해 5대 지표(레이더용) {comprehension,focus,closeReading,challenge,stability}
     xp_earned = Column(Integer, nullable=True, default=0)
     duration_seconds = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
