@@ -171,6 +171,7 @@ export const ReadingPane: React.FC = () => {
         });
       }
     };
+    
     const onFocus = () => {
       if (sessionId) {
         enqueueEvent({
@@ -179,13 +180,24 @@ export const ReadingPane: React.FC = () => {
         });
       }
     };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        onBlur();
+      } else {
+        onFocus();
+      }
+    };
+
     window.addEventListener('blur', onBlur);
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [incrementGazeOut, sessionId]);
+  }, [incrementGazeOut, sessionId, enqueueEvent]);
 
   // ── 단락 체류 시간 누적 ──
   const handleParagraphVisible = useCallback(

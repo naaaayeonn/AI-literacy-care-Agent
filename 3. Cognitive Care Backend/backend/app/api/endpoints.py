@@ -58,10 +58,12 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
     # 2번 연동 (실제 Content Reducer 에이전트 적용)
     from ..agents.content_reducer.agent import run_content_reducer
     
-    if req.content:
+    if req.rawText:
+        mock_raw_text = req.rawText
+    elif req.content:
         mock_raw_text = "\n\n".join(req.content)
     else:
-        mock_raw_text = "AI 기술이 발전함에 따라 우리의 삶은 크게 변화하고 있습니다. 특히 문해력이 중요한 시대가 되었습니다. 다양한 정보를 비판적으로 수용하고 활용하는 능력이 필수적입니다. 인공지능이 제공하는 정보를 그대로 믿기보다는 스스로 생각하고 판단하는 힘을 길러야 합니다."
+        mock_raw_text = "AI 기술의 발전에 따라 우리의 삶은 크게 변화하고 있습니다. 특히 문해력이 중요한 시기가 되었습니다. 다양한 정보를 비판적으로 수용하고 활용하는 능력이 필수적입니다. 인공지능이 제공하는 정보를 무조건 믿기보다는 스스로 생각하고 판단하는 힘을 길러야 합니다."
     
     state = create_initial_state(session_id=session_id, user_id=req.userId, document_id=document_id, raw_text=mock_raw_text)
     updated_state = run_content_reducer(state)
