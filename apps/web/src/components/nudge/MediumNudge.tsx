@@ -9,6 +9,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusStore } from '../../stores/focusStore';
+import { useReadingStore } from '../../stores/readingStore';
 
 interface MediumNudgeProps {
   message?: string;
@@ -17,11 +18,16 @@ interface MediumNudgeProps {
 }
 
 export const MediumNudge: React.FC<MediumNudgeProps> = ({ message, onEscalate }) => {
-  const { isNudgeVisible, nudgeLevel, dismissNudge, showQuiz, setNudgeLevel, nudgeMessage } = useFocusStore();
+  const { isNudgeVisible, nudgeLevel, dismissNudge, showQuiz, setNudgeLevel, nudgeMessage, nudgeSummary } = useFocusStore();
   const isVisible = isNudgeVisible && nudgeLevel === 'medium';
 
   const handleEscalate = () => {
     // Medium → Hard + QuizCard 표시
+    useReadingStore.getState().enqueueEvent({
+      type: 'request_quiz',
+      timestamp_ms: Date.now(),
+      metadata: { requested_by: 'user_escalation' }
+    });
     setNudgeLevel('hard');
     showQuiz();
     onEscalate?.();
@@ -31,6 +37,29 @@ export const MediumNudge: React.FC<MediumNudgeProps> = ({ message, onEscalate })
     message ??
     nudgeMessage ??
     '집중도가 저하되고 있습니다. 지금까지 읽은 내용의 핵심을 한 번 짚어볼까요?';
+
+  const renderSummary = () => {
+    if (nudgeSummary) {
+      // 요약 텍스트를 문장 단위나 줄바꿈 단위로 분리하여 리스트로 보여줍니다.
+      const lines = nudgeSummary.split(/(?<=[다요했됩습])[.]\s*|\n+/).filter(s => s.trim().length > 0);
+      if (lines.length > 0) {
+        return (
+          <ul style={{ margin: 0, paddingLeft: '1.2em', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', lineHeight: 'var(--leading-relaxed)' }}>
+            {lines.map((line, idx) => (
+              <li key={idx}>{line.trim()}{line.trim().endsWith('다') ? '.' : ''}</li>
+            ))}
+          </ul>
+        );
+      }
+    }
+    // 폴백 기본 목록
+    return (
+      <ul style={{ margin: 0, paddingLeft: '1.2em', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', lineHeight: 'var(--leading-relaxed)' }}>
+        <li>디지털 리터러시는 단순 기술 사용을 넘어 비판적 사고력을 포함한다</li>
+        <li>LLM의 환각 현상은 정보 신뢰성을 저해하는 핵심 위협 요인이다</li>
+      </ul>
+    );
+  };
 
   return (
     <AnimatePresence>
@@ -113,10 +142,7 @@ export const MediumNudge: React.FC<MediumNudgeProps> = ({ message, onEscalate })
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)', marginBottom: '6px', fontWeight: 'var(--weight-semibold)' as unknown as number }}>
               📌 지금까지의 핵심 요약
             </p>
-            <ul style={{ margin: 0, paddingLeft: '1.2em', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', lineHeight: 'var(--leading-relaxed)' }}>
-              <li>디지털 리터러시는 단순 기술 사용을 넘어 비판적 사고력을 포함한다</li>
-              <li>LLM의 환각 현상은 정보 신뢰성을 저해하는 핵심 위협 요인이다</li>
-            </ul>
+            {renderSummary()}
           </div>
 
           {/* 액션 버튼 */}

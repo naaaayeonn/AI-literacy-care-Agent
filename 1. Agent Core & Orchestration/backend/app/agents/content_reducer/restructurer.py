@@ -1,166 +1,92 @@
 """
-restructurer.py — LLM 기반 텍스트 재구성 모듈 (M1)
+restructurer.py — 문단별 요약 생성 모듈 (M1/M2 개편)
 
-사용자의 리터러시 프로필과 텍스트 난이도에 따라
-Claude API를 호출하여 쉬운 문장으로 변환한다.
+각 청크의 original_text를 받아 독자의 문해력 수준(1~5레벨)에 맞춰서
+1~2문장의 핵심 요약문(summary)을 생성한다. 이 요약문은 3번 백엔드에서 OX 퀴즈를 출제하는 근거로 사용된다.
 
-동작 모드:
-  CONTENT_REDUCER_MODE=real (기본):
-    → ANTHROPIC_API_KEY가 있으면 실제 Claude API 호출
-    → API 키 없으면 DEMO 모드로 자동 전환
-
-  CONTENT_REDUCER_MODE=stub:
-    → 원문 앞에 [레벨 수준] 접두사 추가 (API 없이 빠른 테스트용)
-
-  DEMO_MODE=true:
-    → API 없이 데모용 텍스트 반환
-
-실패 시 Fallback: 원문 텍스트를 그대로 반환 (절대 예외 전파 안 함)
+SnowChat API(무료 Gemini 2.5 Flash)를 활용하여 요금을 차단하며, 
+API 키가 없거나 데모 모드일 때는 결정론적인 더미 요약(앞부분 100자 + 요약 태그)을 제공하여 환각을 차단한다.
 """
 from __future__ import annotations
 
-import json
 import os
-import re
-import time
-from pathlib import Path
-
-from backend.app.agents.content_reducer.contracts import ChunkDict
-from backend.app.agents.content_reducer.prompts import (
-    RESTRUCTURE_SYSTEM_PROMPT,
-    build_restructure_prompt,
+from backend.app.agents.content_reducer.snowchat_client import (
+    is_snowchat_available,
+    _call_llm_via_snowchat,
 )
-from backend.app.agents.content_reducer.router import get_routing_reason, select_model
 
 # ---------------------------------------------------------------------------
-# 환경 설정
+# 요약 생성 시스템 프롬프트
 # ---------------------------------------------------------------------------
-# 실행 시점에 환경 변수를 동적으로 읽도록 변경함
+SUMMARY_SYSTEM_PROMPT = """당신은 한국어 문단을 독자의 문해력 수준에 맞춰서 1~2문장으로 압축 요약하는 전문가입니다.
+
+요약 원칙:
+1. 원문의 핵심 팩트, 숫자, 인과관계를 절대 왜곡하지 마세요.
+2. 1~2문장으로 명확하게 요약하여, 독자가 글의 골자를 한눈에 이해하게 하세요.
+3. 이 요약문은 향후 O/X 퀴즈의 출제 근거가 되므로 정보가 구체적이어야 합니다.
+4. 설명이나 서두("이 글은~", "요약하자면~") 없이 오직 요약된 문장만 출력하세요.
+
+독자 수준 가이드:
+- 레벨 1 (초급): 아주 쉬운 단어와 비유를 사용. 
+- 레벨 3 (중급): 고등학생 수준. 일반적인 시사 어휘 수준 유지.
+- 레벨 5 (전문가): 전공 지식을 그대로 반영한 조밀한 요약."""
 
 
-# ---------------------------------------------------------------------------
-# 고품질 데모 폴백 데이터 로드
-# ---------------------------------------------------------------------------
+def summarize_chunk(original_text: str, user_literacy_level: int) -> str:
+    """
+    단일 문단을 독자 수준에 맞춰 1~2문장으로 요약한다.
+    """
+    if not original_text or not original_text.strip():
+        return ""
 
-def _load_fallback_data() -> dict:
+    level_desc = {
+        1: "레벨 1 (아주 쉬운 어휘와 초등 수준 비유 사용)",
+        2: "레벨 2 (쉬운 어휘와 중등 수준 설명)",
+        3: "레벨 3 (보통 난이도, 고등 수준)",
+        4: "레벨 4 (성인 교양 수준, 다소 학술적)",
+        5: "레벨 5 (전문 전공 수준, 전문용어 그대로 사용)"
+    }.get(user_literacy_level, "레벨 3 (보통 난이도)")
+
+    prompt = f"""[독자 수준]: {level_desc}
+[요약할 원문]:
+{original_text}
+
+[요약문]:"""
+
     try:
-        root = Path(__file__).resolve().parents[4]
-        path = root / "data" / "demo_fallback_data.json"
-        if path.exists():
-            with open(path, encoding="utf-8") as f:
-                return json.load(f)
+        if is_snowchat_available():
+            # gemini-2.5-flash 모델을 사용하여 무료로 고속 요약 수행
+            summary = _call_llm_via_snowchat(
+                model="gemini-2.5-flash",
+                prompt=prompt,
+                system_instruction=SUMMARY_SYSTEM_PROMPT
+            )
+            if summary:
+                return summary
     except Exception:
         pass
-    return {}
 
-_FALLBACK_DATA = _load_fallback_data()
-
-
-# ---------------------------------------------------------------------------
-# 데모 / Stub 재구성
-# ---------------------------------------------------------------------------
-
-_LEVEL_LABELS = {
-    1: "초급",
-    2: "초중급",
-    3: "중급",
-    4: "중고급",
-    5: "전문가",
-}
+    # Fallback: API 호출이 불가능하거나 에러 시 앞부분 일부를 잘라 요약문 대체
+    sentences = original_text.replace("\n", " ").split(".")
+    fallback_parts = [s.strip() for s in sentences if s.strip()]
+    if len(fallback_parts) >= 2:
+        return f"[요약] {fallback_parts[0]}. {fallback_parts[1]}."
+    elif len(fallback_parts) == 1:
+        return f"[요약] {fallback_parts[0]}."
+    return f"[요약] {original_text[:100]}..."
 
 
-def _demo_restructure(text: str, level: int) -> str:
-    """API 없이 동작하는 데모용 재구성."""
-    # 1. 고품질 데모 캐시 데이터 매칭 시도
-    if _FALLBACK_DATA and "chunks" in _FALLBACK_DATA:
-        normalized_text = text.replace(" ", "").replace("\n", "")
-        for entry in _FALLBACK_DATA["chunks"]:
-            ref_text = entry["original_text"].replace(" ", "").replace("\n", "")
-            if normalized_text in ref_text or ref_text in normalized_text:
-                return entry["restructured_text"]
-
-    # 2. 매칭 실패 시 단순 시뮬레이션
-    label = _LEVEL_LABELS.get(level, "중급")
-    sentences = re.split(r"(?<=[다요했됩습])[.]\s*|(?<=[.!?])\s+", text)
-    simplified = " ".join(s.strip() for s in sentences if s.strip())
-    return f"[{label} 수준 재구성] {simplified}"
-
-
-# ---------------------------------------------------------------------------
-# 공개 API
-# ---------------------------------------------------------------------------
-
-def restructure_text(
-    chunks: list[ChunkDict],
+def summarize_chunks(
+    chunks: list[dict],
     profile: dict,
-    difficulty_score: float,
-    domain: str = "일반",
-) -> list[ChunkDict]:
+) -> list[dict]:
     """
-    청크 목록을 사용자 수준에 맞게 재구성한다.
-
-    Args:
-        chunks: ChunkDict 목록 (chunker.py 출력)
-        profile: 사용자 프로필
-        difficulty_score: 전체 문서 난이도
-        domain: 도메인 힌트
-
-    Returns:
-        restructured_text가 추가된 ChunkDict 목록
+    청크 목록을 돌며 각 청크에 'summary' 필드를 생성하여 주입한다.
     """
-    # 리터러시 수준 결정
-    level = profile.get("user_literacy_level", 3)
-    if isinstance(profile.get("reading_level"), str):
-        _map = {
-            "beginner": 1, "elementary": 2, "intermediate": 3,
-            "advanced": 4, "expert": 5,
-        }
-        level = _map.get(profile.get("reading_level", "intermediate"), 3)
-
-    mode = os.getenv("CONTENT_REDUCER_MODE", "real").lower()
-    demo_mode = os.getenv("DEMO_MODE", "false").lower() == "true"
-    # Stub / Demo 모드 → 빠른 반환
-    if mode == "stub" or demo_mode:
-        for chunk in chunks:
-            chunk["restructured_text"] = _demo_restructure(
-                chunk["original_text"], level
-            )
-        return chunks
-
-    # 실제 LLM 호출 시도
-    if not is_snowchat_available():
-        # API 키 없으면 demo로 폴백
-        for chunk in chunks:
-            chunk["restructured_text"] = _demo_restructure(
-                chunk["original_text"], level
-            )
-        return chunks
-
-    model_used = "gemini-2.5-flash"
+    user_literacy_level = int(profile.get("user_literacy_level", 3))
 
     for chunk in chunks:
-        chunk_difficulty = chunk.get("difficulty", difficulty_score)
-        term_count = len(chunk.get("terms", []))
-
-        try:
-            prompt = build_restructure_prompt(chunk["original_text"], level, domain)
-            restructured = _call_llm_via_snowchat(
-                model=model_used,
-                prompt=prompt,
-                system_instruction=RESTRUCTURE_SYSTEM_PROMPT
-            )
-            chunk["restructured_text"] = restructured
-            # routing 메타 정보 (trace용)
-            reason = get_routing_reason(chunk_difficulty, term_count, model_used)
-            chunk.setdefault("_meta", {})["routing"] = reason
-            chunk.setdefault("_meta", {})["model"] = model_used
-
-        except Exception as exc:
-            # LLM 실패 → 원문 반환 (Fallback)
-            chunk["restructured_text"] = chunk["original_text"]
-            chunk.setdefault("_meta", {})["routing"] = f"fallback: {exc}"
-
-        # Rate limit 방지
-        time.sleep(0.05)
+        original = chunk.get("original_text", "")
+        chunk["summary"] = summarize_chunk(original, user_literacy_level)
 
     return chunks

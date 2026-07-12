@@ -5,9 +5,11 @@ agent.py — Content Reducer 에이전트 진입점 (M1)
 
 M1 구현 상태:
   - readability + chunking: 실제 동작
-  - restructuring: 실제 Claude API (API 키 없으면 demo 모드 자동 전환)
   - RAG 용어풀이: 신뢰 출처 JSON 기반 키워드 매칭
   → M2에서 퀴즈 생성기 추가 예정
+
+Note: 문장 재구성(restructure) 기능은 설계 변경으로 제거됨.
+      대신 문단별 난이도 + 문해력 RAG 로 대체 예정.
 
 CONTENT_REDUCER_MODE 환경 변수:
   "real"  → 실제 모듈 사용 (기본값)
@@ -34,8 +36,9 @@ from backend.app.agents.content_reducer.readability import (
     analyze_readability,
     calculate_difficulty_score,
     get_readability_label,
+    get_technical_term_density,
 )
-from backend.app.agents.content_reducer.restructurer import restructure_text
+from backend.app.agents.content_reducer.restructurer import summarize_chunks
 
 if TYPE_CHECKING:
     from backend.app.agents.content_reducer.contracts import ReadingSessionState
@@ -48,10 +51,10 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 def _collect_simplified_text(chunks: list) -> str:
-    """재구성된 청크 텍스트를 전체 문서 단위로 합친다."""
+    """청크의 요약 텍스트를 전체 문서 단위로 합쳐 전체 요약본을 제공한다."""
     parts = []
     for chunk in chunks:
-        text = chunk.get("restructured_text") or chunk.get("original_text", "")
+        text = chunk.get("summary") or chunk.get("original_text", "")
         if text:
             parts.append(text)
     return "\n\n".join(parts)
@@ -68,9 +71,8 @@ def run_content_reducer(state: "ReadingSessionState") -> "ReadingSessionState":
     파이프라인:
       1. 가독성 분석 → difficulty_score
       2. 의미 단위 청킹 → chunks + chunk_id
-      3. LLM 텍스트 재구성 → restructured_text (난이도 기반 모델 라우팅)
-      4. RAG 용어풀이 주입 → terms + faithfulness_score
-      5. 결과 조합 → state 업데이트
+      3. RAG 용어풀이 주입 → terms + faithfulness_score
+      4. 결과 조합 → state 업데이트
 
     실패 시 절대 예외를 외부로 전파하지 않는다.
     각 서브모듈 실패 시 fallback 값을 사용한다.
@@ -108,19 +110,22 @@ def run_content_reducer(state: "ReadingSessionState") -> "ReadingSessionState":
 
     try:
         # ─────────────────────────────────────────
-        # Step 1: 가독성 분석
+        # Step 1: 가독성 및 난이도 분석
         # ─────────────────────────────────────────
         try:
             readability_score = analyze_readability(raw_text)
-            difficulty_score = calculate_difficulty_score(readability_score)
+            tech_density = get_technical_term_density(raw_text)
+            difficulty_score = calculate_difficulty_score(raw_text)
         except Exception as e:
             readability_score, difficulty_score = fallback_readability()
+            tech_density = 0.0
             step_trace["readability_fallback"] = str(e)
 
         state["readability_score"] = round(readability_score, 2)
         state["difficulty_score"] = round(difficulty_score, 2)
         step_trace["readability_score"] = readability_score
         step_trace["difficulty_score"] = difficulty_score
+        step_trace["technical_term_density"] = tech_density
         step_trace["readability_label"] = get_readability_label(readability_score)
 
         # ─────────────────────────────────────────
@@ -147,29 +152,15 @@ def run_content_reducer(state: "ReadingSessionState") -> "ReadingSessionState":
             step_trace["rag_fallback"] = str(e)
 
         # ─────────────────────────────────────────
-        # Step 4: LLM 텍스트 재구성
+        # Step 4: 문단별 요약 생성 (3번 OX 퀴즈용)
         # ─────────────────────────────────────────
         try:
-            domain = profile.get("target_domain", "일반")
-            chunks = restructure_text(chunks, profile, difficulty_score, domain)
-
-            # M2: _meta 필드를 chunk에서 추출하여 step_trace에 보관하고 chunk에서는 제거 (계약 클린 유지)
-            chunks_routing = []
-            for chunk in chunks:
-                if "_meta" in chunk:
-                    meta = chunk.pop("_meta", {})
-                    chunks_routing.append({
-                        "chunk_id": chunk["chunk_id"],
-                        "routing": meta.get("routing"),
-                        "model": meta.get("model")
-                    })
-            if chunks_routing:
-                step_trace["chunks_routing"] = chunks_routing
+            chunks = summarize_chunks(chunks, profile)
         except Exception as e:
-            # 재구성 전체 실패 → 원문 그대로 사용
+            # 요약 실패 시 폴백으로 원문 앞부분 자동 세팅
             for chunk in chunks:
-                chunk.setdefault("restructured_text", chunk["original_text"])
-            step_trace["restructure_fallback"] = str(e)
+                chunk["summary"] = chunk["original_text"][:120] + "..."
+            step_trace["summary_fallback"] = str(e)
 
         # ─────────────────────────────────────────
         # Step 5: 결과 조합
@@ -265,7 +256,6 @@ if __name__ == "__main__":
     for ch in result["chunks"]:
         print(f"[{ch['chunk_id']}]")
         print(f"  원문     : {ch['original_text'][:80]}...")
-        print(f"  재구성   : {ch.get('restructured_text', '(없음)')[:80]}...")
         terms_in_chunk = ch.get("terms", [])
         if terms_in_chunk:
             print(f"  용어     : {', '.join(t['term'] for t in terms_in_chunk)}")

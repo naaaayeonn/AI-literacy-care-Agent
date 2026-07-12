@@ -72,8 +72,10 @@ export interface LiveMetrics {
 /** Recharts LiteracyScoreChart에 전달할 데이터 포인트 */
 export interface ScoreDataPoint {
   label: string;
-  before: number;               // 케어 미적용 기준값
-  after: number;                // 케어 적용 실제값
+  before?: number;               // 케어 미적용 기준값
+  after?: number;                // 케어 적용 실제값
+  thisWeek?: number;             // 주간 차트용
+  lastWeek?: number;             // 주간 차트용
 }
 
 /** 게이미피케이션 상태 */

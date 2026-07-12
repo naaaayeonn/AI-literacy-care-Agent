@@ -3,6 +3,7 @@
  * LiteracyScoreChart + 요약 지표를 scoreStore에서 실제 값으로 표시.
  */
 import React from 'react';
+import { TrendingUp } from 'lucide-react';
 import LiteracyScoreChart from './LiteracyScoreChart';
 import { useScoreStore } from '../../stores/scoreStore';
 
@@ -12,7 +13,7 @@ export const GrowthDashboard: React.FC = () => {
   // 케어 전후 최대 델타 계산
   const maxDelta =
     scoreSeries.length >= 2
-      ? Math.max(...scoreSeries.map((d) => d.after - d.before))
+      ? Math.max(...scoreSeries.map((d) => (d.after || 0) - (d.before || 0)))
       : 0;
 
   return (
@@ -35,9 +36,13 @@ export const GrowthDashboard: React.FC = () => {
               color: 'var(--color-text)',
               fontFamily: 'var(--font-sans)',
               letterSpacing: 'var(--tracking-kr)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
           >
-            ★ Literacy Score 전후 비교
+            <span style={{ color: 'var(--color-primary)' }}><TrendingUp size={20} /></span>
+            Literacy Score 주간 비교
           </h2>
           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)', marginTop: '4px' }}>
             AI 케어 에이전트 개입 전 / 후 점수 추이

@@ -2,99 +2,96 @@ import os
 import json
 import urllib.request
 
-# Gemini REST API 직접 호출 (SnowChat 403 에러 우회 및 429 핸들링)
-_GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-
 def is_snowchat_available() -> bool:
-    api_key = (os.getenv("GEMINI_API_KEY", "") or os.getenv("SNOWCHAT_API_KEY", "")).strip()
-    if not api_key or api_key.startswith("your_"):
+    """
+    SnowChat API 키가 환경 변수에 설정되어 있는지 확인한다.
+    """
+    snowchat_key = os.getenv("SNOWCHAT_API_KEY", "")
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    
+    if (not snowchat_key or snowchat_key.startswith("your_")) and (not gemini_key or gemini_key.startswith("your_")):
         return False
     return True
 
 def _call_llm_via_snowchat(model: str, prompt: str, system_instruction: str | None = None) -> str:
     """
-    Mindlogic SnowChat API Gateway를 통해 LLM을 호출한다.
+    Mindlogic SnowChat API Gateway를 호출하여 응답을 받는다.
     """
-    api_key = (os.getenv("GEMINI_API_KEY", "") or os.getenv("SNOWCHAT_API_KEY", "")).strip()
-    if not api_key or api_key.startswith("your_"):
-        raise ValueError("SnowChat API key is not configured.")
-
-    url = "https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions"
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "User-Agent": user_agent
-    }
-
-    messages = []
-    if system_instruction:
-        messages.append({"role": "system", "content": system_instruction})
-    messages.append({"role": "user", "content": prompt})
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": 2048,
-        "temperature": 0.1
-    }
-
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
-
-    with urllib.request.urlopen(req, timeout=15) as response:
-        res_data = json.loads(response.read().decode("utf-8"))
-        choices = res_data.get("choices", [])
-        if choices:
-            content = choices[0].get("message", {}).get("content", "")
-            return content.strip()
-
-    raise ValueError("Empty response from SnowChat API.")
-
-def _query_gemini_llm(word: str, context: str | None = None) -> dict | None:
-    if not is_snowchat_available():
-        return None
-
-    try:
-        if context:
-            prompt = (
-                f"다음 기사 문맥을 고려하여 단어 '{word}'의 뜻을 설명해 주세요.\n"
-                f"조건: 1) 완성된 한 문장으로 2) '입니다' 또는 '합니다'로 끝내기 3) 100자 이내\n"
-                f"기사 문맥: {context[:200]}"
-            )
-        else:
-            prompt = (
-                f"단어 '{word}'의 뜻을 설명해 주세요.\n"
-                f"조건: 1) 완성된 한 문장으로 2) '입니다' 또는 '합니다'로 끝내기 3) 100자 이내"
-            )
-
-        result = _call_llm_via_snowchat(
-            model="gemini-2.5-flash",
-            prompt=prompt,
-            system_instruction="당신은 친절하고 정확한 국어사전입니다."
+    snowchat_key = os.getenv("SNOWCHAT_API_KEY", "")
+    
+    # If SnowChat key is valid, try it first
+    if snowchat_key and not snowchat_key.startswith("your_"):
+        url = "https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions"
+        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        
+        headers = {
+            "Authorization": f"Bearer {snowchat_key}",
+            "Content-Type": "application/json",
+            "User-Agent": user_agent
+        }
+        
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
+        
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": 1024,
+            "temperature": 0.7
+        }
+        
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
         )
+        
+        try:
+            with urllib.request.urlopen(req, timeout=15) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                choices = res_data.get("choices", [])
+                if choices:
+                    content = choices[0].get("message", {}).get("content", "")
+                    return content.strip()
+                    
+            raise ValueError("Empty response from SnowChat API.")
+        except Exception as e:
+            print(f"SnowChat API failed: {e}")
+            pass # Fallthrough to Gemini if available
 
-        if result:
-            result = result.replace('"', '').replace("'", "").strip()
-            return {
-                "term": word,
-                "definition": result,
-                "source": "LLM 실시간 유추"
+    # Fallback to Google Gemini
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key and not gemini_key.startswith("your_"):
+        try:
+            gemini_model_name = "gemini-1.5-flash" if "flash" in model.lower() else "gemini-1.5-pro"
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model_name}:generateContent?key={gemini_key}"
+            
+            parts = []
+            if system_instruction:
+                parts.append({"text": f"System Instruction: {system_instruction}\n\n"})
+            parts.append({"text": prompt})
+            
+            payload = {
+                "contents": [{"parts": parts}]
             }
-    except urllib.error.HTTPError as e:
-        if e.code == 429:
-            return {
-                "term": word,
-                "definition": "💡 구글 API 요청 한도가 초과되었습니다. 잠시 후 다시 드래그해주세요.",
-                "source": "API 제한 초과"
-            }
-        print(f"[snowchat_client] HTTP 에러: {e.code}")
-    except Exception as e:
-        print(f"[snowchat_client] LLM API 에러: {e}")
+            
+            gemini_req = urllib.request.Request(
+                gemini_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(gemini_req, timeout=15) as gemini_res:
+                res_data = json.loads(gemini_res.read().decode("utf-8"))
+                candidates = res_data.get("candidates", [])
+                if candidates:
+                    content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    return content.strip()
+        except Exception as gemini_e:
+            print(f"Gemini fallback failed: {gemini_e}")
+            raise gemini_e
 
-    return None
+    raise ValueError("All API fallbacks failed or no valid API key was found.")

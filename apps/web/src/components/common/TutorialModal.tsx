@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertTriangle, Brain, BookOpen, Activity, Puzzle, Timer, Ruler, EyeOff, Edit3, Lightbulb, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function TutorialModal() {
@@ -56,8 +57,20 @@ export default function TutorialModal() {
           {step === 1 && (
             <div className="space-y-5">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🚨</span>
-                <span className="text-xs font-semibold uppercase tracking-wider text-red-400">제작 배경 (Background)</span>
+                <span style={{ color: '#f43f5e' }}><AlertTriangle size={24} /></span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-rose-500">제작 배경 (Background)</span>
+              </div>
+              
+              <div className="rounded-xl border p-4" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
+                <div className="flex items-start gap-3">
+                  <div className="text-amber-500 mt-0.5"><AlertTriangle size={18} /></div>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-600 dark:text-amber-400 mb-1">튜토리얼 및 본편 진행 전 안내</h3>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+                      너무 의식해서 잘 읽으려고 노력하지 마세요! 평소처럼 편안하고 자연스럽게 텍스트를 읽어주셔야 AI가 <strong>당신만의 진짜 독서 기준점(Baseline)</strong>을 정확하게 파악하고 맞춤형 케어를 제공할 수 있습니다.
+                    </p>
+                  </div>
+                </div>
               </div>
               <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
                 AI 시대, 무너지는 현대인의 기능적 문해력
@@ -88,9 +101,9 @@ export default function TutorialModal() {
                   </div>
                   {/* 2주기 한국 */}
                   <div className="flex flex-col items-center flex-1">
-                    <span className="text-[10px] font-bold text-red-400 mb-1">249점</span>
-                    <div className="w-8 rounded-t bg-red-500/80 transition-all duration-1000" style={{ height: '54px' }} />
-                    <span className="text-[10px] mt-1 font-semibold text-red-400">2주기('24) 한국</span>
+                    <span className="text-[10px] font-bold text-rose-500 mb-1">249점</span>
+                    <div className="w-8 rounded-t bg-rose-400/80 transition-all duration-1000" style={{ height: '54px' }} />
+                    <span className="text-[10px] mt-1 font-semibold text-rose-500">2주기('24) 한국</span>
                   </div>
                   {/* 2주기 OECD */}
                   <div className="flex flex-col items-center flex-1">
@@ -99,8 +112,8 @@ export default function TutorialModal() {
                     <span className="text-[10px] mt-1 text-gray-400">2주기 OECD 평균</span>
                   </div>
                 </div>
-                <div className="text-[10px] text-center mt-3 text-red-400 font-medium">
-                  ⚠️ OECD 평균(260점)과 동일했던 지표가 10년 만에 평균 한참 아래로 역전 및 추락
+                <div className="text-[10px] text-center mt-3 text-rose-500 font-medium flex items-center justify-center gap-1">
+                  <AlertTriangle size={12} /> OECD 평균(260점)과 동일했던 지표가 10년 만에 평균 한참 아래로 역전 및 추락
                 </div>
               </div>
             </div>
@@ -109,7 +122,7 @@ export default function TutorialModal() {
           {step === 2 && (
             <div className="space-y-5">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🧠</span>
+                <span style={{ color: 'var(--color-primary)' }}><Brain size={24} /></span>
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>서비스 소개 (Introduction)</span>
               </div>
               <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
@@ -122,8 +135,14 @@ export default function TutorialModal() {
               </p>
               {/* Placeholder 그래픽 */}
               <div className="rounded-xl border p-6 mt-4 flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface-alt)', borderColor: 'var(--color-border)', height: '140px' }}>
-                <div className="text-center space-y-1">
-                  <div className="text-3xl">📖 ➔ 🧘 ➔ 🧠</div>
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-4" style={{ color: 'var(--color-primary)' }}>
+                    <BookOpen size={32} />
+                    <ArrowRight size={20} style={{ color: 'var(--color-text-muted)' }} />
+                    <Activity size={32} />
+                    <ArrowRight size={20} style={{ color: 'var(--color-text-muted)' }} />
+                    <Brain size={32} />
+                  </div>
                   <div className="text-[11px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
                     [ 읽기 행동 실시간 모니터링 ➔ 넛지 & O/X 퀴즈 개입 ➔ 비판적 성찰력 회복 ]
                   </div>
@@ -135,7 +154,7 @@ export default function TutorialModal() {
           {step === 3 && (
             <div className="space-y-5">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🔌</span>
+                <span style={{ color: '#4ade80' }}><Puzzle size={24} /></span>
                 <span className="text-xs font-semibold uppercase tracking-wider text-green-400">확장 프로그램 (Chrome Extension)</span>
               </div>
               <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
@@ -147,8 +166,10 @@ export default function TutorialModal() {
               </p>
               {/* Placeholder 그래픽 */}
               <div className="rounded-xl border p-6 mt-4 flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface-alt)', borderColor: 'var(--color-border)', height: '140px' }}>
-                <div className="text-center space-y-2">
-                  <div className="text-3xl">🧩 Chrome Extension</div>
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
+                    <Puzzle size={28} /> Chrome Extension
+                  </div>
                   <div className="text-[11px] border px-2 py-0.5 rounded-full inline-block" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                     Chrome 웹 스토어에서 "AllDayHappyDay" 검색 후 다운로드
                   </div>
@@ -160,7 +181,7 @@ export default function TutorialModal() {
           {step === 4 && (
             <div className="space-y-5">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🧘</span>
+                <span style={{ color: '#c084fc' }}><Activity size={24} /></span>
                 <span className="text-xs font-semibold uppercase tracking-wider text-purple-400">집중도 지수 (Focus Score)</span>
               </div>
               <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
@@ -173,17 +194,17 @@ export default function TutorialModal() {
               {/* Placeholder 그래픽 */}
               <div className="rounded-xl border p-4 mt-4" style={{ backgroundColor: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 border rounded-lg" style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="text-lg">⏱️</div>
-                    <div className="text-[10px] font-bold mt-1">체류 시간</div>
+                  <div className="p-2 border rounded-lg flex flex-col items-center justify-center" style={{ borderColor: 'var(--color-border)' }}>
+                    <div style={{ color: 'var(--color-primary)' }}><Timer size={24} /></div>
+                    <div className="text-[10px] font-bold mt-2">체류 시간</div>
                   </div>
-                  <div className="p-2 border rounded-lg" style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="text-lg">📐</div>
-                    <div className="text-[10px] font-bold mt-1">개인 baseline</div>
+                  <div className="p-2 border rounded-lg flex flex-col items-center justify-center" style={{ borderColor: 'var(--color-border)' }}>
+                    <div style={{ color: 'var(--color-primary)' }}><Ruler size={24} /></div>
+                    <div className="text-[10px] font-bold mt-2">개인 baseline</div>
                   </div>
-                  <div className="p-2 border rounded-lg" style={{ borderColor: 'var(--color-border)' }}>
-                    <div className="text-lg">👁️</div>
-                    <div className="text-[10px] font-bold mt-1">이탈 감지</div>
+                  <div className="p-2 border rounded-lg flex flex-col items-center justify-center" style={{ borderColor: 'var(--color-border)' }}>
+                    <div style={{ color: 'var(--color-danger, #ef4444)' }}><EyeOff size={24} /></div>
+                    <div className="text-[10px] font-bold mt-2">이탈 감지</div>
                   </div>
                 </div>
               </div>
@@ -193,7 +214,7 @@ export default function TutorialModal() {
           {step === 5 && (
             <div className="space-y-5">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">📝</span>
+                <span style={{ color: '#fbbf24' }}><Edit3 size={24} /></span>
                 <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">문단 퀴즈 (Nudge & Quiz)</span>
               </div>
               <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
@@ -206,8 +227,10 @@ export default function TutorialModal() {
               </p>
               {/* Placeholder 그래픽 */}
               <div className="rounded-xl border p-6 mt-4 flex items-center justify-center" style={{ backgroundColor: 'var(--color-surface-alt)', borderColor: 'var(--color-border)', height: '140px' }}>
-                <div className="text-center space-y-2">
-                  <div className="text-2xl">💡 Nudge Alert</div>
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold" style={{ color: '#fbbf24' }}>
+                    <Lightbulb size={24} /> Nudge Alert
+                  </div>
                   <div className="text-[11px] px-3 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 inline-block font-semibold">
                     Q: 인쇄 텍스트 외 디지털 텍스트도 PIAAC의 리터러시 평가 대상인가요? (O / X)
                   </div>
@@ -225,7 +248,8 @@ export default function TutorialModal() {
             className="text-xs font-semibold hover:underline"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            튜토리얼 건너뛰기 ⏩
+            튜토리얼 건너뛰기
+            <ArrowRight size={14} className="inline ml-1" />
           </button>
 
           {/* 이전 / 다음 페이징 */}

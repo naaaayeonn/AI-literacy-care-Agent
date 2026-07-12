@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 import { useScoreStore } from '../../stores/scoreStore';
 import { useReadingStore } from '../../stores/readingStore';
 import { useFocusStore } from '../../stores/focusStore';
-import LiteracyScoreChart from '../dashboard/LiteracyScoreChart';
+import SessionLiveChart from '../dashboard/SessionLiveChart';
 
 interface SessionSummaryCardProps {
   isVisible: boolean;
@@ -87,7 +87,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({ isVisibl
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
                 📈 이번 세션 Literacy Score 변화
               </p>
-              <LiteracyScoreChart height={180} hideLegend />
+              <SessionLiveChart height={180} hideLegend />
             </div>
 
             {/* 배지 획득 */}

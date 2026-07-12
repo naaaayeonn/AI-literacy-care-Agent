@@ -5,33 +5,34 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Globe, Download, PackageOpen, Link as LinkIcon, Wrench, FolderOpen, Puzzle, Rocket, AlertTriangle, BookOpen, HelpCircle, ArrowLeft } from 'lucide-react';
 
 const STEPS = [
   {
     num: '시작 전에',
-    icon: '🌐',
+    icon: <Globe size={22} />,
     title: '크롬(Chrome) 브라우저 필요',
     desc: '이 확장은 크롬에서만 동작해요. 엣지·사파리는 지원하지 않습니다.',
     highlight: false,
   },
   {
     num: '1단계',
-    icon: '⬇️',
+    icon: <Download size={22} />,
     title: '파일 내려받기',
     desc: '아래 [확장 프로그램 다운로드] 버튼을 눌러 압축파일(ai-literacy-care-extension.zip)을 받으세요.',
     highlight: false,
   },
   {
     num: '2단계',
-    icon: '📦',
+    icon: <PackageOpen size={22} />,
     title: '압축 풀기 (중요)',
     desc: '받은 파일을 압축 해제하세요.',
-    note: '⚠️ 압축을 푼 폴더는 지우거나 옮기지 마세요. 확장이 이 폴더를 계속 참조해요.\n(예: 바탕화면/ai-literacy-care-extension)',
+    note: <><AlertTriangle size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} /> 압축을 푼 폴더는 지우거나 옮기지 마세요. 확장이 이 폴더를 계속 참조해요.<br />(예: 바탕화면/ai-literacy-care-extension)</>,
     highlight: true,
   },
   {
     num: '3단계',
-    icon: '🔗',
+    icon: <LinkIcon size={22} />,
     title: '확장 관리 페이지 열기',
     desc: '크롬 주소창에 chrome://extensions 를 입력하세요.',
     code: 'chrome://extensions',
@@ -39,31 +40,31 @@ const STEPS = [
   },
   {
     num: '4단계',
-    icon: '🔧',
+    icon: <Wrench size={22} />,
     title: '개발자 모드 켜기',
     desc: '화면 오른쪽 위 "개발자 모드" 스위치를 켜세요.',
     highlight: false,
   },
   {
     num: '5단계',
-    icon: '📂',
+    icon: <FolderOpen size={22} />,
     title: '폴더 불러오기',
     desc: '왼쪽 위 "압축해제된 확장 프로그램을 로드합니다" 클릭 → 2단계에서 압축 푼 폴더 안의 extension 폴더를 선택하세요.',
-    note: '📖 AI 리터러시 케어 카드가 뜨면 설치 완료!',
+    note: <><BookOpen size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} /> AI 리터러시 케어 카드가 뜨면 설치 완료!</>,
     highlight: false,
   },
   {
     num: '6단계',
-    icon: '🧩',
+    icon: <Puzzle size={22} />,
     title: '아이콘 고정 (선택)',
-    desc: '주소창 오른쪽 퍼즐 조각(🧩) 아이콘 → AI툴바에 고정하면 편리해요.',
+    desc: <><Puzzle size={14} style={{ display: 'inline', margin: '0 2px', verticalAlign: 'text-bottom' }} /> 주소창 오른쪽 퍼즐 조각 아이콘 → AI툴바에 고정하면 편리해요.</>,
     highlight: false,
   },
   {
     num: '7단계',
-    icon: '🚀',
+    icon: <Rocket size={22} />,
     title: '사용 시작',
-    desc: '읽고 싶은 웹페이지나 PDF를 열고, 툴바의 📖 아이콘 클릭 → 토글을 "켜짐"으로.\n이제 스크롤하며 읽으면 집중도가 측정돼요.',
+    desc: <><BookOpen size={14} style={{ display: 'inline', margin: '0 2px', verticalAlign: 'text-bottom' }} /> 읽고 싶은 웹페이지나 PDF를 열고, 툴바의 독서 아이콘 클릭 → 토글을 "켜짐"으로.<br />이제 스크롤하며 읽으면 집중도가 측정돼요.</>,
     note: '(내 PDF 파일을 읽으려면 팝업의 "내 PDF 열기" 버튼을 누르세요.)',
     highlight: false,
   },
@@ -91,14 +92,7 @@ export default function ExtensionPage() {
     document.title = '확장 프로그램 설치 안내 — AI 리터러시 케어';
   }, []);
 
-  // 확장 프로그램 zip 파일 다운로드
-  // 실제 zip 파일이 public 폴더에 있다고 가정
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = '/ai-literacy-care-extension.zip';
-    link.download = 'ai-literacy-care-extension.zip';
-    link.click();
-  };
+  // 다운로드는 네이티브 앵커 태그를 사용하여 처리합니다.
 
   return (
     <div
@@ -140,7 +134,7 @@ export default function ExtensionPage() {
           onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-alt)')}
           onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          ← 홈으로
+          <ArrowLeft size={16} /> 홈으로
         </button>
         <div
           style={{
@@ -194,10 +188,11 @@ export default function ExtensionPage() {
           </p>
 
           {/* 다운로드 버튼 (메인 CTA) */}
-          <motion.button
+          <motion.a
+            href="/ai-literacy-care-extension.zip"
+            download="ai-literacy-care-extension.zip"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleDownload}
             style={{
               width: '100%',
               padding: '16px 24px',
@@ -216,11 +211,12 @@ export default function ExtensionPage() {
               boxShadow: '0 4px 20px rgba(200, 90, 50, 0.25)',
               marginBottom: '40px',
               letterSpacing: 'var(--tracking-kr)',
+              textDecoration: 'none',
             }}
           >
             확장 프로그램 다운로드
             <span style={{ fontSize: '12px', fontWeight: 400, opacity: 0.85 }}>ai-literacy-care-extension.zip</span>
-          </motion.button>
+          </motion.a>
         </motion.div>
 
         {/* 설치 단계 */}
@@ -252,7 +248,9 @@ export default function ExtensionPage() {
                   gap: '4px',
                 }}
               >
-                <span style={{ fontSize: '22px', lineHeight: 1 }}>{step.icon}</span>
+                <div style={{ color: step.highlight ? 'var(--color-danger, #ef4444)' : 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {step.icon}
+                </div>
                 <span
                   style={{
                     fontSize: '10px',
@@ -345,7 +343,7 @@ export default function ExtensionPage() {
               letterSpacing: 'var(--tracking-kr)',
             }}
           >
-            ❓ 자주 묻는 질문
+            <HelpCircle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> 자주 묻는 질문
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {FAQS.map((faq, i) => (
@@ -378,10 +376,11 @@ export default function ExtensionPage() {
         </div>
 
         {/* 하단 다운로드 버튼 반복 */}
-        <motion.button
+        <motion.a
+          href="/ai-literacy-care-extension.zip"
+          download="ai-literacy-care-extension.zip"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
-          onClick={handleDownload}
           style={{
             width: '100%',
             padding: '14px 24px',
@@ -398,10 +397,11 @@ export default function ExtensionPage() {
             justifyContent: 'center',
             gap: '10px',
             letterSpacing: 'var(--tracking-kr)',
+            textDecoration: 'none',
           }}
         >
           확장 프로그램 다운로드
-        </motion.button>
+        </motion.a>
       </div>
     </div>
   );

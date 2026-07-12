@@ -26,7 +26,7 @@ export default function ReadingPage() {
   const setTermDefinition = useReadingStore((s) => s.setTermDefinition);
 
   const showNudge = useFocusStore((s) => s.showNudge);
-  const setActiveQuiz = useFocusStore((s) => s.setActiveQuiz);
+  const setActiveQuizzes = useFocusStore((s) => s.setActiveQuizzes);
   const showQuiz = useFocusStore((s) => s.showQuiz);
   const setFocusScore = useFocusStore((s) => s.setFocusScore);
 
@@ -70,12 +70,12 @@ export default function ReadingPage() {
       switch (command.type) {
         case 'nudge':
           if (command.payload.nudgeLevel) {
-            showNudge(command.payload.nudgeLevel, command.payload.nudgeMessage);
+            showNudge(command.payload.nudgeLevel, command.payload.nudgeMessage, command.payload.summaryText);
           }
           break;
         case 'quiz':
-          if (command.payload.quiz) {
-            setActiveQuiz(command.payload.quiz);
+          if (command.payload.quizzes) {
+            setActiveQuizzes(command.payload.quizzes);
             showQuiz();
           }
           break;
@@ -141,15 +141,21 @@ export default function ReadingPage() {
           handleInterventionCommand(cmd);
         }
       } catch (err) {
-        console.warn('[ReadingPage] Failed to send events:', err);
+        console.warn('[ReadingPage] Failed to send events, keeping in queue:', err);
+        // 실패 시 큐에 다시 넣기 (순서 보장 위해 앞쪽에 넣는 것이 이상적이나, 간단히 다시 enqueue)
+        eventsToSend.forEach(e => useReadingStore.getState().enqueueEvent(e));
       }
     };
 
     async function initSession() {
+      // 7/13: 새 글을 읽을 때 이전 집중도와 상태가 유지되는 버그 수정
+      useFocusStore.getState().reset();
+      useReadingStore.getState().reset();
       try {
         const cfg = useSessionConfig.getState();
         const isUpload =
           cfg.mode === 'upload' && !!cfg.uploadedContent && cfg.uploadedContent.length > 0;
+
         const sessionData = await api.startSession({
           articleId: isUpload ? 'uploaded' : 'default-article',
           userId: cfg.userId ?? 'u_anon_guest',
@@ -167,8 +173,8 @@ export default function ReadingPage() {
         // → 리더의 '쉬운 문장 보기' 토글이 업로드한 문서에도 작동
         if (isUpload) {
           const chunks: any[] = (sessionData.article as any)?.chunks ?? [];
-          const originals = chunks.map((c) => c.originalText).filter(Boolean);
-          const easies = chunks.map((c) => c.restructuredText || c.originalText);
+          const originals = chunks.map((c: any) => c.original_text).filter(Boolean);
+          const easies = chunks.map((c: any) => c.restructured_text || c.original_text);
           if (originals.length) {
             useReadingStore.getState().setArticle({
               id: sessionData.article.id ?? 'uploaded',
@@ -236,7 +242,7 @@ export default function ReadingPage() {
   }, [
     startSessionStore,
     showNudge,
-    setActiveQuiz,
+    setActiveQuizzes,
     showQuiz,
     setHighlights,
     setFocusScore,

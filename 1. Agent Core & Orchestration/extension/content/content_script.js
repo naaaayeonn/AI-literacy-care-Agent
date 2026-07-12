@@ -15,17 +15,22 @@
   let session = null;
   let armTimer = null;
 
+  // content[]로 보낸 본문 문단 DOM 노드(인덱스 = content[]/chunk 인덱스와 정렬).
+  // 본문 기준 진행률(§4)이 이 노드들을 관찰한다.
+  let articleEls = [];
+  const progress = window.ALC_Progress.create({ getElements: () => articleEls });
+
   // ── 웹 본문 추출 (MVP: <p> 휴리스틱, 후속 @mozilla/readability) ──
   function extract() {
     const rootEl =
       document.querySelector("article") ||
       document.querySelector("main") ||
       document.body;
-    const paras = Array.from(rootEl.querySelectorAll("p"))
-      .map((p) => p.innerText.trim())
-      .filter((t) => t.length > 40);
-    const content = paras.length
-      ? paras
+    articleEls = Array.from(rootEl.querySelectorAll("p")).filter(
+      (p) => p.innerText.trim().length > 40
+    );
+    const content = articleEls.length
+      ? articleEls.map((p) => p.innerText.trim())
       : [document.body.innerText.trim()].filter(Boolean);
     return { title: document.title, url: location.href, type: "web", content };
   }
@@ -35,10 +40,17 @@
     return text.length >= CFG.MIN_READABLE_CHARS;
   }
 
-  // 웹 진행률: 스크롤 위치 / 최대 스크롤 (0~1)
+  // 웹 진행률: 본문 문단 기준(§4). 문단 노드를 못 잡은 경우(전체 body 폴백)만
+  // 스크롤 기준으로 강등한다.
   function getProgress() {
+    if (articleEls.length) return progress.getProgress();
     const max = document.body.scrollHeight - window.innerHeight;
     return max > 0 ? window.scrollY / max : 0;
+  }
+
+  // 지금 읽고 있는 문단 인덱스(§4). 3번이 "어느 문단?"을 알 때 쓴다.
+  function getReadChunkIndex() {
+    return articleEls.length ? progress.getReadChunkIndex() : null;
   }
 
   // 설치별 익명 UUID (ADR-002). 없으면 생성해 storage에 보관, 로그인 없음.
@@ -62,6 +74,7 @@
         userId,
         extract,
         getProgress,
+        getReadChunkIndex,
         overlay,
         scrollTarget: window,
       });
@@ -76,6 +89,8 @@
       session.stop();
       session = null;
     }
+    progress.detach();
+    articleEls = [];
   }
 
   window.addEventListener("pagehide", () => {

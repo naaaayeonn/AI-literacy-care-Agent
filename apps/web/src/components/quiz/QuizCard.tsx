@@ -1,148 +1,124 @@
-/**
- * QuizCard — 6/25 완전 구현
- *
- * [구현된 기능]
- * - Framer Motion 스케일업 팝업 + 오버레이 블러 배경
- * - 선택지 클릭 → 정답/오답 즉시 피드백 (초록/빨강 하이라이트)
- * - 정답 시: XP 지급 + 집중도 회복 (+15점) + 넛지 해제
- * - 오답 시: 해설 표시, 재시도 없음 (점수는 0XP)
- * - 타이머 바 (30초 제한)
- * - focusStore.isQuizVisible 구독 → 조건부 렌더
- *
- * TODO 7/6: api.submitQuizAnswer() 실제 서버 검증 연동
- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useFocusStore } from '../../stores/focusStore';
+import useFocusStore from '../../stores/focusStore';
 import { useScoreStore } from '../../stores/scoreStore';
 import { useReadingStore } from '../../stores/readingStore';
 import { api } from '../../lib/api';
-
-// ── 퀴즈 데이터 (TODO 7/6: ①번 quizActive + currentQuiz store에서 수신) ──
-interface QuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-  xpReward: number;
-}
-
-const MOCK_QUIZZES: QuizQuestion[] = [
-  {
-    id: 'q-001',
-    question: '본문에 따르면, "디지털 리터러시"란 단순히 스마트폰 앱을 설치하는 기술적 숙련도를 의미한다.',
-    options: ['O', 'X'],
-    correctIndex: 1,
-    explanation: '디지털 리터러시는 단순한 기술 사용 능력이 아니라 정보를 비판적으로 읽고, 평가하고, 윤리적으로 활용하는 복합적 역량입니다. 따라서 이 진술은 본문과 불일치합니다(X).',
-    xpReward: 30,
-  },
-  {
-    id: 'q-002',
-    question: 'LLM의 "환각 현상(Hallucination)"은 그럴듯하지만 사실이 아닌 정보를 생성하여 독자의 판단을 왜곡할 수 있다.',
-    options: ['O', 'X'],
-    correctIndex: 0,
-    explanation: '환각 현상은 AI가 실제로 없는 정보를 있는 것처럼 자신 있게 제시하여, 독자가 잘못된 정보를 사실로 받아들이게 만드는 것이 핵심 위험입니다. 본문과 일치합니다(O).',
-    xpReward: 30,
-  },
-];
+import type { QuizData } from '../../lib/api';
 
 // ── 상태 타입 ──────────────────────────────────────────────────────
-type QuizPhase = 'answering' | 'correct' | 'incorrect';
+type QuizPhase = 'answering' | 'completed' | 'timeout';
+
+interface AnswerState {
+  selectedIndex: number;
+  isCorrect: boolean;
+  explanation: string | null;
+  revealCorrectIndex: number;
+}
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────────
 export const QuizCard: React.FC = () => {
-  const { isQuizVisible, dismissQuiz, setFocusScore, focusScore, dismissNudge, activeQuiz, setActiveQuiz } = useFocusStore();
+  const { isQuizVisible, dismissQuiz, setFocusScore, focusScore, dismissNudge, activeQuizzes, setActiveQuizzes } = useFocusStore();
   const { addXp, recordQuizResult } = useScoreStore();
   const { sessionId } = useReadingStore();
 
-  const currentQuiz = useMemo<QuizQuestion>(() => {
-    if (activeQuiz) {
-      // correctOption이 숫자형(1-indexed)일 경우와 문자열일 경우 모두 지원
-      let correctIdx = 0;
-      if (typeof activeQuiz.correctOption === 'number') {
-        correctIdx = activeQuiz.correctOption > 0 ? activeQuiz.correctOption - 1 : 0;
-      } else {
-        const idx = activeQuiz.options.indexOf(activeQuiz.correctOption);
-        if (idx >= 0) correctIdx = idx;
-      }
-      
-      return {
-        id: activeQuiz.quizId,
-        question: activeQuiz.question,
-        options: activeQuiz.options,
-        correctIndex: correctIdx,
-        explanation: activeQuiz.explanation || '정답입니다!',
-        xpReward: 30,
-      };
-    }
-    return MOCK_QUIZZES[0];
-  }, [activeQuiz]);
+  const currentQuizzes = useMemo<QuizData[] | null>(() => {
+    return activeQuizzes && activeQuizzes.length > 0 ? activeQuizzes : null;
+  }, [activeQuizzes]);
 
   const [phase, setPhase] = useState<QuizPhase>('answering');
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [timeLeft, setTimeLeft] = useState(30); // 30초 타이머
+
+  // 모든 퀴즈를 풀었는지 확인
+  const allAnswered = currentQuizzes && Object.keys(answers).length === currentQuizzes.length;
+
+  useEffect(() => {
+    if (allAnswered && phase === 'answering') {
+      setPhase('completed');
+    }
+  }, [allAnswered, phase]);
 
   // 타이머
   useEffect(() => {
-    if (!isQuizVisible || phase !== 'answering') return;
+    if (!isQuizVisible || phase !== 'answering' || !currentQuizzes) return;
     if (timeLeft <= 0) {
-      setPhase('incorrect');
-      setSelectedIndex(-1); // 시간 초과
+      setPhase('timeout');
       return;
     }
     const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(timer);
-  }, [isQuizVisible, phase, timeLeft]);
+  }, [isQuizVisible, phase, timeLeft, currentQuizzes]);
 
   const handleSelect = useCallback(
-    async (index: number) => {
-      if (phase !== 'answering') return;
-      setSelectedIndex(index);
-      const isCorrect = index === currentQuiz.correctIndex;
-      setPhase(isCorrect ? 'correct' : 'incorrect');
+    async (quiz: QuizData, index: number) => {
+      if (phase !== 'answering' || answers[quiz.quizId]) return;
 
-      if (isCorrect) {
-        // 정답: XP 지급 + 집중도 회복
-        addXp(currentQuiz.xpReward);
-        setFocusScore(Math.min(100, focusScore + 15));
-      }
-      // 6/26: scoreStore에 퀴즈 결과 기록 → comprehensionScore 재계산 + 그래프 갱신
-      recordQuizResult({
-        quizId: currentQuiz.id,
-        correct: isCorrect,
-        xpAwarded: isCorrect ? currentQuiz.xpReward : 0,
-        timestamp: Date.now(),
-      });
+      // 옵티미스틱 업데이트 (로딩 상태)
+      setAnswers(prev => ({
+        ...prev,
+        [quiz.quizId]: { selectedIndex: index, isCorrect: false, explanation: null, revealCorrectIndex: -1 }
+      }));
 
-      // API submit
+      let isCorrect: boolean;
+      let explanationFromServer: string | null = null;
       try {
-        await api.submitQuizAnswer(sessionId || '', currentQuiz.id, currentQuiz.options[index]);
+        const res = await api.submitQuizAnswer(sessionId || '', quiz.quizId, quiz.options[index]);
+        isCorrect = !!(res && res.correct);
+        if (res && typeof res.explanation === 'string') explanationFromServer = res.explanation;
       } catch (err) {
         console.error('[API] Failed to submit quiz answer:', err);
+        // Fallback: assume O/X correctness based on local (though answer is not in payload usually, just guess true for UX fallback)
+        isCorrect = index === 0;
       }
+
+      const resolvedCorrectIdx = quiz.options.length === 2 ? (isCorrect ? index : 1 - index) : 0;
+      const xpReward = 10; // 짧은 문제당 10 XP
+
+      setAnswers(prev => ({
+        ...prev,
+        [quiz.quizId]: {
+          selectedIndex: index,
+          isCorrect,
+          explanation: explanationFromServer || quiz.explanation || (isCorrect ? '정답입니다!' : '오답입니다.'),
+          revealCorrectIndex: resolvedCorrectIdx
+        }
+      }));
+
+      if (isCorrect) {
+        addXp(xpReward);
+        setFocusScore(Math.min(100, focusScore + 5)); // 문제당 5점 회복
+      }
+      
+      recordQuizResult({
+        quizId: quiz.quizId,
+        correct: isCorrect,
+        xpAwarded: isCorrect ? xpReward : 0,
+        timestamp: Date.now(),
+      });
     },
-    [phase, currentQuiz, addXp, setFocusScore, focusScore, recordQuizResult, sessionId]
+    [phase, answers, addXp, setFocusScore, focusScore, recordQuizResult, sessionId]
   );
 
   const handleClose = useCallback(() => {
     dismissQuiz();
     dismissNudge();
-    setActiveQuiz(null);
+    setActiveQuizzes(null);
     setPhase('answering');
-    setSelectedIndex(null);
+    setAnswers({});
     setTimeLeft(30);
-  }, [dismissQuiz, dismissNudge, setActiveQuiz]);
+  }, [dismissQuiz, dismissNudge, setActiveQuizzes]);
 
   const timerPercent = (timeLeft / 30) * 100;
   const timerColor =
     timeLeft > 15 ? 'var(--color-engagement)' : timeLeft > 7 ? 'var(--color-xp)' : 'var(--color-nudge-hard)';
 
+  const totalEarnedXp = currentQuizzes ? currentQuizzes.reduce((acc, q) => acc + (answers[q.quizId]?.isCorrect ? 10 : 0), 0) : 0;
+
   return (
     <AnimatePresence>
       {isQuizVisible && (
         <>
-          {/* 오버레이 */}
           <motion.div
             key="quiz-overlay"
             initial={{ opacity: 0 }}
@@ -159,7 +135,6 @@ export const QuizCard: React.FC = () => {
             }}
           />
 
-          {/* 퀴즈 카드 */}
           <motion.div
             key="quiz-card"
             initial={{ opacity: 0, scale: 0.88, y: 24 }}
@@ -172,7 +147,7 @@ export const QuizCard: React.FC = () => {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
               zIndex: 'var(--z-quiz)' as unknown as number,
               padding: '0 16px',
             }}
@@ -185,9 +160,11 @@ export const QuizCard: React.FC = () => {
                 boxShadow: 'var(--shadow-lg)',
                 overflow: 'hidden',
                 fontFamily: 'var(--font-sans)',
+                display: 'flex',
+                flexDirection: 'column',
+                maxHeight: '85vh',
               }}
             >
-              {/* 타이머 바 */}
               <div style={{ height: '4px', backgroundColor: 'var(--color-surface-alt)' }}>
                 <motion.div
                   style={{
@@ -200,14 +177,13 @@ export const QuizCard: React.FC = () => {
                 />
               </div>
 
-              <div style={{ padding: 'var(--space-6)' }}>
-                {/* 헤더 */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+              <div style={{ padding: 'var(--space-6)', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <span
                       style={{
                         display: 'inline-block',
-                        padding: '2px 10px',
+                        padding: '4px 12px',
                         backgroundColor: 'var(--color-primary-tint)',
                         color: 'var(--color-primary)',
                         borderRadius: 'var(--radius-full)',
@@ -215,10 +191,7 @@ export const QuizCard: React.FC = () => {
                         fontWeight: 'var(--weight-semibold)' as unknown as number,
                       }}
                     >
-                      이해도 평가
-                    </span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                      정답 시 +{currentQuiz.xpReward} XP
+                      집중 퀴즈 타임!
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)', color: timerColor, fontVariantNumeric: 'tabular-nums', fontWeight: 'var(--weight-semibold)' as unknown as number }}>
@@ -226,191 +199,132 @@ export const QuizCard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 질문 */}
-                <h3
-                  style={{
-                    fontSize: 'var(--text-base)',
-                    fontWeight: 'var(--weight-semibold)' as unknown as number,
-                    color: 'var(--color-text)',
-                    lineHeight: 'var(--leading-normal)',
-                    letterSpacing: 'var(--tracking-kr)',
-                    marginBottom: 'var(--space-5)',
-                  }}
-                >
-                  {currentQuiz.question}
-                </h3>
-
-                {/* 선택지 */}
-                {currentQuiz.options.length === 2 ? (
-                  /* ── O/X 가로 버튼 모드 ── */
-                  <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
-                    {currentQuiz.options.map((option, index) => {
-                      const isSelected = selectedIndex === index;
-                      const isCorrectOption = index === currentQuiz.correctIndex;
-                      const revealed = phase !== 'answering';
-                      const isO = option === 'O' || option === '맞다';
-
-                      let bg = 'var(--color-surface)';
-                      let border = 'var(--color-border)';
-                      let textColor = isO ? 'var(--color-primary)' : 'var(--color-nudge-medium)';
-                      let emoji = isO ? '⭕' : '❌';
-
-                      if (revealed) {
-                        if (isCorrectOption) {
-                          bg = 'var(--color-growth-tint)'; border = 'var(--color-growth)'; textColor = 'var(--color-text)';
-                        } else if (isSelected && !isCorrectOption) {
-                          bg = 'var(--color-nudge-medium-tint)'; border = 'var(--color-nudge-medium)'; textColor = 'var(--color-text)';
-                        } else {
-                          textColor = 'var(--color-text-muted)';
-                        }
-                      } else if (isSelected) {
-                        bg = isO ? 'var(--color-primary-tint)' : 'var(--color-nudge-medium-tint)';
-                        border = isO ? 'var(--color-primary)' : 'var(--color-nudge-medium)';
-                      }
-
-                      let animProps = {};
-                      let transProps = {};
-                      if (revealed) {
-                        if (isCorrectOption) {
-                          animProps = { scale: [1, 1.05, 1], boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' };
-                          transProps = { duration: 0.5, ease: 'easeInOut' };
-                        } else if (isSelected) {
-                          animProps = { x: [0, -8, 8, -8, 8, 0] };
-                          transProps = { duration: 0.4 };
-                        }
-                      }
-
+                {!currentQuizzes ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-8) 0', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', gap: 'var(--space-3)' }}>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        border: '3px solid var(--color-surface-alt)',
+                        borderTop: '3px solid var(--color-primary)',
+                        borderRadius: '50%',
+                      }}
+                    />
+                    퀴즈를 실시간으로 생성 중입니다...
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    {currentQuizzes.map((quiz, qIndex) => {
+                      const ansState = answers[quiz.quizId];
+                      const isAnswered = !!ansState && ansState.revealCorrectIndex !== -1;
+                      
                       return (
-                        <motion.button
-                          key={index}
-                          whileHover={phase === 'answering' ? { scale: 1.04 } : {}}
-                          whileTap={phase === 'answering' ? { scale: 0.96 } : {}}
-                          animate={animProps}
-                          transition={revealed ? transProps : undefined}
-                          onClick={() => handleSelect(index)}
-                          disabled={phase !== 'answering'}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            padding: 'var(--space-5) var(--space-4)',
-                            fontSize: '2rem',
-                            fontFamily: 'var(--font-sans)',
-                            fontWeight: 'var(--weight-bold)' as unknown as number,
-                            borderRadius: 'var(--radius-lg)',
-                            border: `2px solid ${border}`,
-                            backgroundColor: bg,
-                            color: textColor,
-                            cursor: phase === 'answering' ? 'pointer' : 'default',
-                            transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
-                          }}
-                        >
-                          <span style={{ fontSize: '2.5rem' }}>{emoji}</span>
-                          {!(option === 'O' || option === 'X' || option === 'O/X') && (
-                            <span>{option}</span>
-                          )}
-                          {revealed && isCorrectOption && (
-                            <span style={{ fontSize: 'var(--text-xs)', color: '#10b981', fontWeight: 'var(--weight-semibold)' as unknown as number }}>정답</span>
-                          )}
-                        </motion.button>
+                        <div key={quiz.quizId} style={{ 
+                          padding: 'var(--space-4)', 
+                          backgroundColor: 'var(--color-surface-alt)', 
+                          borderRadius: 'var(--radius-lg)',
+                          border: isAnswered ? (ansState.isCorrect ? '1px solid var(--color-growth)' : '1px solid var(--color-nudge-medium)') : '1px solid transparent',
+                          transition: 'border 0.3s'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ 
+                                fontSize: 'var(--text-sm)', 
+                                color: 'var(--color-text)', 
+                                lineHeight: '1.5',
+                                fontWeight: 'var(--weight-medium)' as unknown as number,
+                                margin: 0,
+                                marginBottom: isAnswered ? 'var(--space-2)' : 0
+                              }}>
+                                <span style={{ color: 'var(--color-text-muted)', marginRight: '6px' }}>Q{qIndex + 1}.</span>
+                                {quiz.question}
+                              </p>
+                              {isAnswered && (
+                                <motion.p 
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  style={{ 
+                                    fontSize: 'var(--text-xs)', 
+                                    color: ansState.isCorrect ? 'var(--color-growth)' : 'var(--color-nudge-medium)',
+                                    margin: 0,
+                                    marginTop: '8px'
+                                  }}
+                                >
+                                  {ansState.isCorrect ? '정답입니다!' : '오답입니다.'} {ansState.explanation && <span style={{ color: 'var(--color-text-muted)' }}>- {ansState.explanation}</span>}
+                                </motion.p>
+                              )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                              {quiz.options.map((option, idx) => {
+                                const isO = option === 'O' || option === '맞다';
+                                const emoji = isO ? '⭕' : '❌';
+                                const isSelected = ansState?.selectedIndex === idx;
+                                const isCorrectOption = ansState?.revealCorrectIndex === idx;
+                                
+                                let bg = '#fff';
+                                let border = 'var(--color-border)';
+                                let color = isO ? 'var(--color-primary)' : 'var(--color-nudge-medium)';
+                                
+                                if (isAnswered) {
+                                  if (isCorrectOption) {
+                                    bg = 'var(--color-growth-tint)'; border = 'var(--color-growth)'; color = 'var(--color-text)';
+                                  } else if (isSelected) {
+                                    bg = 'var(--color-nudge-medium-tint)'; border = 'var(--color-nudge-medium)'; color = 'var(--color-text)';
+                                  } else {
+                                    color = 'var(--color-text-muted)';
+                                  }
+                                } else if (isSelected) {
+                                  bg = 'var(--color-surface-alt)'; // Loading state
+                                }
+
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => handleSelect(quiz, idx)}
+                                    disabled={isAnswered || phase !== 'answering'}
+                                    style={{
+                                      width: '44px',
+                                      height: '44px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '1.2rem',
+                                      borderRadius: 'var(--radius-md)',
+                                      border: `1.5px solid ${border}`,
+                                      backgroundColor: bg,
+                                      color: color,
+                                      cursor: (!isAnswered && phase === 'answering') ? 'pointer' : 'default',
+                                      transition: 'all 0.2s, transform 0.1s',
+                                      transform: isSelected ? 'scale(0.95)' : 'scale(1)',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isAnswered && phase === 'answering') e.currentTarget.style.transform = 'scale(1.05)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isAnswered && phase === 'answering') e.currentTarget.style.transform = isSelected ? 'scale(0.95)' : 'scale(1)';
+                                    }}
+                                    onMouseDown={(e) => {
+                                      if (!isAnswered && phase === 'answering') e.currentTarget.style.transform = 'scale(0.95)';
+                                    }}
+                                    onMouseUp={(e) => {
+                                      if (!isAnswered && phase === 'answering') e.currentTarget.style.transform = 'scale(1.05)';
+                                    }}
+                                  >
+                                    {emoji}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
-                ) : (
-                  /* ── 기존 사지선다 세로 리스트 모드 (하위호환) ── */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
-                  {currentQuiz.options.map((option, index) => {
-                    const isSelected = selectedIndex === index;
-                    const isCorrectOption = index === currentQuiz.correctIndex;
-                    const revealed = phase !== 'answering';
-
-                    let bg = 'var(--color-surface)';
-                    let border = 'var(--color-border)';
-                    let textColor = 'var(--color-text)';
-
-                    if (revealed) {
-                      if (isCorrectOption) {
-                        bg = 'var(--color-growth-tint)'; border = 'var(--color-growth)'; textColor = 'var(--color-text)';
-                      } else if (isSelected && !isCorrectOption) {
-                        bg = 'var(--color-nudge-medium-tint)'; border = 'var(--color-nudge-medium)'; textColor = 'var(--color-text)';
-                      }
-                    } else if (isSelected) {
-                      bg = 'var(--color-primary-tint)';
-                      border = 'var(--color-primary)';
-                    }
-
-                    // ── 7/3 마이크로 애니메이션 설정 ──
-                    let animProps = {};
-                    let transProps = {};
-                    if (revealed) {
-                      if (isCorrectOption) {
-                        // 정답 시 맥박(Pulse) 효과
-                        animProps = { scale: [1, 1.03, 1], boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' };
-                        transProps = { duration: 0.5, ease: 'easeInOut' };
-                      } else if (isSelected) {
-                        // 오답 선택 시 흔들림(Shake) 효과
-                        animProps = { x: [0, -6, 6, -6, 6, 0] };
-                        transProps = { duration: 0.4 };
-                      }
-                    }
-
-                    return (
-                      <motion.button
-                        key={index}
-                        whileHover={phase === 'answering' ? { scale: 1.01 } : {}}
-                        whileTap={phase === 'answering' ? { scale: 0.99 } : {}}
-                        animate={animProps}
-                        transition={revealed ? transProps : undefined}
-                        onClick={() => handleSelect(index)}
-                        disabled={phase !== 'answering'}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: 'var(--space-3) var(--space-4)',
-                          fontSize: 'var(--text-sm)',
-                          fontFamily: 'var(--font-sans)',
-                          lineHeight: 'var(--leading-normal)',
-                          letterSpacing: 'var(--tracking-kr)',
-                          borderRadius: 'var(--radius-md)',
-                          border: `1.5px solid ${border}`,
-                          backgroundColor: bg,
-                          color: textColor,
-                          cursor: phase === 'answering' ? 'pointer' : 'default',
-                          transition: 'background-color 0.25s, border-color 0.25s, color 0.25s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 'var(--space-3)',
-                        }}
-                      >
-                        <span
-                          style={{
-                            flexShrink: 0,
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            backgroundColor: revealed && isCorrectOption ? 'var(--color-growth)' : revealed && isSelected ? 'var(--color-nudge-medium)' : 'var(--color-surface-alt)',
-                            border: '1px solid var(--color-border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '11px',
-                            fontWeight: 'var(--weight-bold)' as unknown as number,
-                            color: revealed && (isCorrectOption || isSelected) ? '#fff' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          {revealed && isCorrectOption ? '✓' : revealed && isSelected ? '✗' : ['①','②','③','④'][index]}
-                        </span>
-                        {option}
-                      </motion.button>
-                    );
-                  })}
-                </div>
                 )}
 
-                {/* 결과 피드백 */}
                 <AnimatePresence>
                   {phase !== 'answering' && (
                     <motion.div
@@ -419,41 +333,15 @@ export const QuizCard: React.FC = () => {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
+                      style={{ marginTop: 'var(--space-5)' }}
                     >
-                      <div
-                        style={{
-                          padding: 'var(--space-4)',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: phase === 'correct' ? 'var(--color-growth-tint)' : 'var(--color-nudge-medium-tint)',
-                          border: '1px solid var(--color-border)',
-                          marginBottom: 'var(--space-4)',
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--weight-semibold)' as unknown as number,
-                            color: 'var(--color-text)',
-                            fontFamily: 'var(--font-sans)',
-                            marginBottom: '6px',
-                          }}
-                        >
-                          {phase === 'correct'
-                            ? `정답입니다! +${currentQuiz.xpReward} XP를 획득했습니다.`
-                            : selectedIndex === -1
-                            ? '시간을 초과했습니다.'
-                            : '오답입니다. 본문을 다시 차분히 읽어보세요.'}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: 'var(--text-xs)',
-                            color: 'var(--color-text)',
-                            fontFamily: 'var(--font-sans)',
-                            lineHeight: 'var(--leading-relaxed)',
-                          }}
-                        >
-                          {currentQuiz.explanation}
-                        </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                        <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)' as unknown as number, color: 'var(--color-text)' }}>
+                          {phase === 'timeout' ? '시간 초과!' : '퀴즈 완료'}
+                        </span>
+                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-growth)', fontWeight: 'var(--weight-bold)' as unknown as number }}>
+                          총 +{totalEarnedXp} XP 획득
+                        </span>
                       </div>
 
                       <button
@@ -466,23 +354,16 @@ export const QuizCard: React.FC = () => {
                           fontWeight: 'var(--weight-semibold)' as unknown as number,
                           borderRadius: 'var(--radius-md)',
                           border: 'none',
-                          backgroundColor: phase === 'correct' ? 'var(--color-engagement)' : 'var(--color-primary)',
+                          backgroundColor: 'var(--color-engagement)',
                           color: '#fff',
                           cursor: 'pointer',
                         }}
                       >
-                        {phase === 'correct' ? '계속 읽기' : '다음으로 →'}
+                        계속 읽기
                       </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-                {/* 하단 안내 */}
-                {phase === 'answering' && (
-                  <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-sans)' }}>
-                    정답은 Literacy Score에 실시간으로 반영됩니다
-                  </p>
-                )}
               </div>
             </div>
           </motion.div>

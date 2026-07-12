@@ -30,11 +30,12 @@ class TermDict(TypedDict):
 # ---------------------------------------------------------------------------
 
 class QuizDict(TypedDict):
-    chunk_id: str
-    question: str
-    options: list[str]       # 4개 선택지 ["1. ...", "2. ...", "3. ...", "4. ..."]
-    correct_option: int      # 1~4 (1-indexed)
+    quizId: str
+    type: Literal["ox"]
+    statement: str
+    answer: bool
     explanation: str
+    sourceChunkId: str
 
 
 # ---------------------------------------------------------------------------

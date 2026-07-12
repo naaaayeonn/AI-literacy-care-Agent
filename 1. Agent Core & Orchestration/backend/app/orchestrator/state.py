@@ -46,6 +46,8 @@ class ReadingEvent(TypedDict):
     position: NotRequired[float]
     duration_ms: NotRequired[int]
     velocity: NotRequired[float]  # scroll 속도(px/ms). 3번 집중도 로직의 비정상 스크롤 감점에 사용
+    # 확장 본문 기준 진행률(§4)이 싣는 "지금 읽는 문단 인덱스"(content[]/chunk 인덱스와 정렬).
+    readChunkIndex: NotRequired[int]
     metadata: NotRequired[dict]
 
 
@@ -67,6 +69,10 @@ class ScoreBreakdown(TypedDict):
     cross_validation_penalty: float
     penalty_breakdown: NotRequired[dict]
     reason: NotRequired[str]
+    # 이해도 실측 여부: quiz_answers/quiz_result가 있으면 True(실측), 없으면 완독률 프록시(추정).
+    comprehension_measured: NotRequired[bool]
+    comprehension_confidence: NotRequired[str]  # "high" | "medium" | "low"
+    quiz_count: NotRequired[int]
 
 
 class TraceEntry(TypedDict):
@@ -134,6 +140,9 @@ class ReadingSessionState(TypedDict):
 
     # --- 퀴즈 / 1번 Score Engine 산출 ---
     quiz_result: NotRequired[QuizResult]
+    # O/X 문항별 정답 기록(3번이 /quiz/submit 채점 시 append). 이해도 실측 소스.
+    # 예: [{"quizId": "...", "sourceChunkId": "...", "correct": True, "trigger": "focus_drop"}]
+    quiz_answers: NotRequired[list]
     comprehension_score: NotRequired[float]
     literacy_score: NotRequired[float]
     score_breakdown: NotRequired[ScoreBreakdown]

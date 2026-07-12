@@ -135,6 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       /* noop */
     }
     set({ user: null, isAuthenticated: false, error: null });
+    window.location.href = '/'; // Hard reload to clear all Zustand stores from memory
   },
 
   checkSession: () => {

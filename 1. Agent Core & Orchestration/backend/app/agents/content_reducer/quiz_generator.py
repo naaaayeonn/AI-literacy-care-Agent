@@ -90,9 +90,8 @@ def _generate_demo_quiz(chunk_id: str, context: str) -> QuizDict:
         normalized_context = context.replace(" ", "").replace("\n", "")
         for entry in _FALLBACK_DATA["chunks"]:
             ref_text = entry["original_text"].replace(" ", "").replace("\n", "")
-            ref_restructured = entry["restructured_text"].replace(" ", "").replace("\n", "")
             # chunk_id가 똑같거나 본문 텍스트가 겹치는 경우
-            if entry["chunk_id"] == chunk_id or normalized_context in ref_text or normalized_context in ref_restructured:
+            if entry["chunk_id"] == chunk_id or normalized_context in ref_text:
                 quiz_data = entry.get("quiz")
                 if quiz_data:
                     return QuizDict(

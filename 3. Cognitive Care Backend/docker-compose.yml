@@ -24,7 +24,7 @@ services:
       - default
 
   backend:
-    build: .
+    build: ..
     container_name: ailiteracy_backend
     ports:
       - "8000:8000"
@@ -34,6 +34,10 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://admin:password@db:5432/literacy_care
       - REDIS_URL=redis://redis:6379/0
+      - SNOWCHAT_API_KEY=${SNOWCHAT_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - WOORIMAL_API_KEY=${WOORIMAL_API_KEY}
+      - STDICT_API_KEY=${STDICT_API_KEY}
     networks:
       - default
 

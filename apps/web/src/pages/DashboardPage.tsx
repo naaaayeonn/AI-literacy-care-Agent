@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { BarChart2, Target, Zap, CheckCircle2, Sparkles, Trophy, Award, Activity } from 'lucide-react';
 import GrowthDashboard from '../components/dashboard/GrowthDashboard';
 import DetailedGrowthReport from '../components/dashboard/DetailedGrowthReport';
 import LevelBar from '../components/gamification/LevelBar';
@@ -48,10 +49,11 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1
-            className="text-2xl font-bold"
+            className="text-2xl font-bold flex items-center gap-2"
             style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)', letterSpacing: 'var(--tracking-kr)' }}
           >
-            📊 나의 리터러시 성장 기록
+            <span style={{ color: 'var(--color-primary)' }}><BarChart2 size={24} /></span>
+            나의 리터러시 성장 기록
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
             읽기 행동 분석 및 Literacy Score 기반 성장 추이
@@ -64,12 +66,12 @@ export default function DashboardPage() {
 
       {/* ── 요약 지표 카드 — scoreStore 실시간 연결 ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard emoji="🎯" label="리터러시 점수"   value={String(literacyScore)}    unit="점"  color="var(--color-primary)" />
-        <SummaryCard emoji="⚡" label="평균 집중도"     value={String(engagementScore)}  unit="%"   color="var(--color-engagement)" />
-        <SummaryCard emoji="✅" label="퀴즈 정답률"     value={String(quizAccuracy)}     unit="%"   color="var(--color-growth)"
+        <SummaryCard icon={<Target size={20} />} label="리터러시 점수"   value={String(literacyScore)}    unit="점"  color="var(--color-primary)" />
+        <SummaryCard icon={<Zap size={20} />}    label="평균 집중도"     value={String(engagementScore)}  unit="%"   color="var(--color-engagement)" />
+        <SummaryCard icon={<CheckCircle2 size={20} />} label="퀴즈 정답률" value={String(quizAccuracy)}   unit="%"   color="var(--color-growth)"
           sub={quizResults.length > 0 ? `${quizResults.length}문항 풀이` : '미응시'}
         />
-        <SummaryCard emoji="✨" label="누적 경험치"     value={String(xp)}               unit="XP"  color="var(--color-xp)" />
+        <SummaryCard icon={<Sparkles size={20} />} label="누적 경험치"   value={String(xp)}               unit="XP"  color="var(--color-xp)" />
       </div>
 
       {/* ── 중단: 차트 + 게이미피케이션 ── */}
@@ -85,8 +87,9 @@ export default function DashboardPage() {
 
           {/* 레벨 & XP */}
           <Card variant="default" className="p-5 space-y-4">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
-              🏆 성장 레벨
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
+              <span style={{ color: 'var(--color-primary)' }}><Trophy size={16} /></span>
+              성장 레벨
             </h3>
             <LevelBar level={level} percentage={levelProgress} />
             <div className="flex justify-between items-center">
@@ -99,16 +102,18 @@ export default function DashboardPage() {
 
           {/* 배지 보관함 */}
           <Card variant="default" className="p-5">
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
-              🎖️ 배지 보관함
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-sans)' }}>
+              <span style={{ color: 'var(--color-primary)' }}><Award size={16} /></span>
+              배지 보관함
             </h3>
             <BadgeShelf />
           </Card>
 
           {/* 세션 통계 요약 — 실시간 */}
           <Card variant="flat" className="p-4 space-y-3">
-            <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
-              📅 현재 세션 요약
+            <h3 className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
+              <Activity size={14} />
+              현재 세션 요약
             </h3>
             <div className="space-y-2">
               {[
@@ -136,9 +141,9 @@ export default function DashboardPage() {
 
 /** 요약 지표 카드 */
 function SummaryCard({
-  emoji, label, value, unit, color, sub,
+  icon, label, value, unit, color, sub,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   unit: string;
@@ -154,7 +159,7 @@ function SummaryCard({
       <Card variant="default" className="p-4 h-full flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between mb-2">
-            <span className="text-xl">{emoji}</span>
+            <span style={{ color }}>{icon}</span>
           </div>
           <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>
             {label}

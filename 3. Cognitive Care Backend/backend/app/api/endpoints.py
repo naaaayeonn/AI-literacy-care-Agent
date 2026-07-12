@@ -15,8 +15,7 @@ from ..orchestrator.state import create_initial_state
 from ..orchestrator.graph import run_reading_session
 from .frontend_contract import to_intervention_command, to_session_result
 from ..services.cognitive_care import calculate_focus_score, determine_intervention
-from ..services.quiz_service import select_quiz_for_state
-from ..agents.content_reducer.quiz_generator import generate_quiz
+from ..services.quiz_service import select_quiz_for_state, generate_ox_quiz
 
 router = APIRouter(prefix="/api/session", tags=["Sessions"])
 
@@ -59,10 +58,12 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
     # 2번 연동 (실제 Content Reducer 에이전트 적용)
     from ..agents.content_reducer.agent import run_content_reducer
     
-    if req.content:
+    if req.rawText:
+        mock_raw_text = req.rawText
+    elif req.content:
         mock_raw_text = "\n\n".join(req.content)
     else:
-        mock_raw_text = "AI 기술이 발전함에 따라 우리의 삶은 크게 변화하고 있습니다. 특히 문해력이 중요한 시대가 되었습니다. 다양한 정보를 비판적으로 수용하고 활용하는 능력이 필수적입니다. 인공지능이 제공하는 정보를 그대로 믿기보다는 스스로 생각하고 판단하는 힘을 길러야 합니다."
+        mock_raw_text = "AI 기술의 발전에 따라 우리의 삶은 크게 변화하고 있습니다. 특히 문해력이 중요한 시기가 되었습니다. 다양한 정보를 비판적으로 수용하고 활용하는 능력이 필수적입니다. 인공지능이 제공하는 정보를 무조건 믿기보다는 스스로 생각하고 판단하는 힘을 길러야 합니다."
     
     state = create_initial_state(session_id=session_id, user_id=req.userId, document_id=document_id, raw_text=mock_raw_text)
     updated_state = run_content_reducer(state)
@@ -89,25 +90,16 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
         "chunks": [map_chunk(c) for c in updated_state.get("chunks", [])]
     }
     
-    # 퀴즈 미리 생성하여 Redis에 캐싱
+    # 퀴즈 미리 생성하여 Redis에 캐싱 — 순수 O/X(진술문+참·거짓). role-1 canonical과 정렬.
+    # 4지선다 질문에 O/X 버튼을 붙이던 방식(의미 불일치)을 폐기하고, 2번 summary로
+    # 참·거짓 판별 가능한 진술문을 만든다(generate_ox_quiz).
     quizzes = {}
     for c in updated_state.get("chunks", []):
-        context = c.get("summary") or c.get("original_text", "")
-        quiz_data = generate_quiz(c["chunk_id"], context)
-        
-        # 4지선다(QuizDict)를 O/X(Frontend 규격)로 매핑
-        # 프론트엔드는 question, options (["O", "X"]), answer (boolean), explanation 을 기대함
-        answer_bool = (quiz_data.get("correct_option") == 1)
-        
-        q = {
-            "quizId": f"q_{c['chunk_id']}",
-            "question": quiz_data.get("question", "알 수 없는 질문"),
-            "options": ["O", "X"],
-            "answer": answer_bool,
-            "explanation": quiz_data.get("explanation", "해설 없음"),
-            "chunkId": c["chunk_id"],
-            "sessionId": session_id
-        }
+        summary = c.get("summary") or c.get("restructured_text") or c.get("original_text", "")
+        paragraph = c.get("original_text") or c.get("restructured_text", "")
+        q = generate_ox_quiz(summary, paragraph, c["chunk_id"], session_id)
+        q["chunkId"] = c["chunk_id"]      # 3번 캐시 키 호환
+        q["sessionId"] = session_id
         quizzes[c["chunk_id"]] = q
         
     redis_client = await get_redis()
@@ -149,14 +141,28 @@ async def process_events(session_id: str, req: EventsRequestModel):
             except Exception:
                 pass
 
+        user_requested_quiz = any(e.get("type") == "request_quiz" for e in reading_events)
         focus_score = calculate_focus_score(reading_events, baseline)
         intervention_needed, intervention_level, msg = determine_intervention(focus_score)
         
+        state = create_initial_state(session_id=session_id, user_id="", document_id="", raw_text="")
+        state["reading_events"] = reading_events
+        
+        from .frontend_contract import _completion_rate
+        current_progress = _completion_rate(state)
+        
+        if user_requested_quiz:
+            intervention_needed = True
+            intervention_level = "hard"
+            msg = "요청하신 이해도 퀴즈입니다."
+        elif current_progress >= 100:
+            intervention_needed = True
+            intervention_level = "hard"
+            msg = "끝까지 다 읽으셨군요! 마무리 퀴즈를 풀어보세요. 📝"
+            
         level_to_type = {"none": "none", "soft": "highlight", "medium": "nudge", "hard": "quiz"}
         internal_type = level_to_type.get(intervention_level, "none")
         
-        state = create_initial_state(session_id=session_id, user_id="", document_id="", raw_text="")
-        state["reading_events"] = reading_events
         state["focus_score"] = focus_score
         state["intervention"] = {
             "level": intervention_level,
@@ -175,16 +181,24 @@ async def process_events(session_id: str, req: EventsRequestModel):
                 state["chunks"] = json.loads(chunks_raw)
                 state["asked_quiz_ids"] = json.loads(asked_raw) if asked_raw else []
                 
-                selected_quiz = select_quiz_for_state(state)
-                if selected_quiz:
-                    state["intervention"]["quiz_data"] = selected_quiz
+                # 100% 도달 시, 이미 풀었던 문제라도 다시 제공하여 마무리 퀴즈가 뜨도록 함
+                is_finishing = current_progress >= 100
+                selected_quizzes = select_quiz_for_state(state, ignore_asked=is_finishing)
+                if selected_quizzes:
+                    state["intervention"]["quiz_data"] = selected_quizzes
                     # 출제 기록 업데이트
-                    state["asked_quiz_ids"].append(selected_quiz["quizId"])
+                    for q in selected_quizzes:
+                        state["asked_quiz_ids"].append(q["quizId"])
                     await redis_client.set(f"session:{session_id}:asked_quizzes", json.dumps(state["asked_quiz_ids"]))
                 else:
-                    # 적절한 퀴즈가 없으면 medium(nudge) 수준으로 강등
-                    state["intervention"]["level"] = "medium"
-                    state["intervention"]["type"] = "nudge"
+                    # 적절한 퀴즈가 없으면
+                    if current_progress >= 100 and not user_requested_quiz:
+                        state["intervention"]["level"] = "none"
+                        state["intervention"]["type"] = "none"
+                        state["intervention"]["message"] = ""
+                    else:
+                        state["intervention"]["level"] = "medium"
+                        state["intervention"]["type"] = "nudge"
         
         return to_intervention_command(state)
     finally:
@@ -192,40 +206,43 @@ async def process_events(session_id: str, req: EventsRequestModel):
 
 @router.post("/{session_id}/quiz/submit", response_model=QuizSubmitResponse)
 async def submit_quiz(session_id: str, req: QuizSubmitRequest):
+    """O/X 답안 서버 채점 + 이해도 누적. role-1 canonical과 정렬.
+
+    정답키(answer)는 서버 캐시에만 있고 프론트로 나가지 않으므로(위조 불가),
+    selectedOption("O"/"X")을 캐시된 정답과 비교해 채점한다. 채점 결과는
+    quiz_result(correct/total)로 누적해 result 엔드포인트의 이해도 산출에 쓴다.
+    """
     redis_client = await get_redis()
-    try:
-        quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
-        if not quizzes_raw:
-            raise HTTPException(status_code=404, detail="No quizzes found for session")
-            
-        quizzes = json.loads(quizzes_raw)
-        
-        # find the quiz
-        target_quiz = None
-        for q in quizzes.values():
-            if q["quizId"] == req.quizId:
-                target_quiz = q
-                break
-                
-        if not target_quiz:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-            
-        # check answer: "O" means True, "X" means False
-        is_correct = (req.selectedOption == "O") == target_quiz["answer"]
-        focus_recovered = 15.0 if is_correct else 0.0
-        xp_earned = 10 if is_correct else 0
-        
-        # TODO: 실제 focus_score 회복은 event 파이프라인에 반영해야 하지만, 
-        # 여기서는 프론트가 응답을 받아 UI 점수를 회복할 수 있도록 값을 내려줍니다.
-        
-        return QuizSubmitResponse(
-            correct=is_correct,
-            explanation=target_quiz["explanation"],
-            focusRecovered=focus_recovered,
-            xpEarned=xp_earned
-        )
-    finally:
-        pass
+    quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
+    if not quizzes_raw:
+        raise HTTPException(status_code=404, detail="No quizzes found for session")
+
+    quizzes = json.loads(quizzes_raw)
+    target_quiz = next((q for q in quizzes.values() if q["quizId"] == req.quizId), None)
+    if not target_quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # 서버 채점: "O"=True, "X"=False
+    is_correct = (req.selectedOption == "O") == bool(target_quiz["answer"])
+    focus_recovered = 15.0 if is_correct else 0.0
+    xp_earned = 10 if is_correct else 0
+
+    # 이해도 산출용 누적(result 엔드포인트가 quiz_result를 읽는다)
+    quiz_key = f"session:{session_id}:quiz_result"
+    existing_raw = await redis_client.get(quiz_key)
+    existing = json.loads(existing_raw) if existing_raw else {"correct_count": 0, "total_count": 0, "answers": []}
+    existing["total_count"] += 1
+    if is_correct:
+        existing["correct_count"] += 1
+    existing["answers"].append({"quiz_id": req.quizId, "selected": req.selectedOption, "correct": is_correct})
+    await redis_client.set(quiz_key, json.dumps(existing), ex=86400)
+
+    return QuizSubmitResponse(
+        correct=is_correct,
+        explanation=target_quiz.get("explanation", ""),
+        focusRecovered=focus_recovered,
+        xpEarned=xp_earned,
+    )
 
 
 @router.post("/{session_id}/finish", response_model=SessionFinishResponse)
@@ -375,61 +392,6 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
         return to_session_result(final_state)
     finally:
         pass
-
-@router.post("/{session_id}/quiz/submit", response_model=QuizSubmitResponse)
-async def submit_quiz(
-    session_id: str,
-    req: QuizSubmitRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """퀴즈 답안 제출 및 채점 — Q1/Q3: 실제 정답키 기준 채점 후 Redis 누적 저장."""
-    # 세션 존재 확인
-    result = await db.execute(select(ReadingSession).filter(ReadingSession.id == session_id))
-    session = result.scalars().first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    # Q3: generate_quiz correct_option 기준으로 채점
-    # req.quizCorrectOption (1-indexed) 이 없으면 일반 텍스트 비교 폴백
-    is_correct = False
-    if hasattr(req, 'correctOption') and req.correctOption is not None:
-        # 프론트가 correct_option(1~4 인덱스)을 같이 보낸 경우
-        is_correct = (req.selectedOption == req.correctOption)
-    elif hasattr(req, 'selectedIndex') and hasattr(req, 'correctIndex'):
-        is_correct = (req.selectedIndex == req.correctIndex)
-    else:
-        # 폴백: 선택지 텍스트 직접 비교 (프론트 계약 구버전 호환)
-        is_correct = str(req.selectedOption).strip() == str(getattr(req, 'correctAnswer', '')).strip()
-
-    explanation = "정답입니다! 잘 이해하고 있어요." if is_correct else "아쉽지만 틀렸어요. 다시 한번 읽어보세요."
-
-    # Q1: 채점 결과를 Redis에 누적 저장 (session:{id}:quiz_result)
-    redis_client = await get_redis()
-    try:
-        quiz_key = f"session:{session_id}:quiz_result"
-        existing_raw = await redis_client.get(quiz_key)
-        if existing_raw:
-            existing = json.loads(existing_raw)
-        else:
-            existing = {"correct_count": 0, "total_count": 0, "answers": []}
-
-        existing["total_count"] += 1
-        if is_correct:
-            existing["correct_count"] += 1
-        existing["answers"].append({
-            "quiz_id":  req.quizId,
-            "selected": req.selectedOption,
-            "correct":  is_correct
-        })
-        await redis_client.set(quiz_key, json.dumps(existing), ex=86400)  # 24h TTL
-    finally:
-        await redis_client.aclose()
-
-    return QuizSubmitResponse(
-        correct=is_correct,
-        explanation=explanation,
-        quiz_id=req.quizId,
-    )
 
 @router.post("/{session_id}/explain", response_model=TermExplainResponse)
 async def explain_term(

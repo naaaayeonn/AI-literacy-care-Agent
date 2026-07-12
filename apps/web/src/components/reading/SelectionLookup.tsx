@@ -61,8 +61,12 @@ export default function SelectionLookup() {
       setResult(null);
     };
 
-    document.addEventListener('mouseup', onMouseUp);
-    return () => document.removeEventListener('mouseup', onMouseUp);
+    document.addEventListener('mouseup', onMouseUp as EventListener);
+    document.addEventListener('touchend', onMouseUp as EventListener);
+    return () => {
+      document.removeEventListener('mouseup', onMouseUp as EventListener);
+      document.removeEventListener('touchend', onMouseUp as EventListener);
+    };
   }, []);
 
   const doLookup = useCallback(async () => {

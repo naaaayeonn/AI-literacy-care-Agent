@@ -1,15 +1,10 @@
 /**
- * LiteracyScoreChart — 6/26 업그레이드 (데모 핵심 ★★)
+ * SessionLiveChart — 6/26 업그레이드 (데모 핵심 ★★)
  *
  * [변경 사항]
- * - 세션 진행 중 실시간으로 포인트가 추가되는 "라이브 그래프"로 전환
+ * - 세션 진행 중 실시간으로 포인트가 추가되는 "라이브 그래프"
  * - 마지막 포인트(현재 세션)를 특수 Dot으로 강조 (맥박 애니메이션)
- * - scoreStore.literacyScore가 변화할 때 차트 헤더 수치도 실시간 갱신
- * - 이전 히스토리(일별) + 현재 세션 포인트(진행 구간) 모두 표시
- * - 케어 전/후 격차(Gap) ReferenceLine 하이라이트
- * - (신규) 실제 요일(월~일) 기반 X축 구성 및 오늘 하이라이트 배너 적용
- * - (신규) 데이터 없음(Empty State) 분기 처리 적용
- * - (신규) 이번 주 선 색상 및 시인성 강화
+ * - 이전 히스토리(가상 기준선) + 현재 세션 포인트(진행 구간) 표시
  */
 import React, { useMemo } from 'react';
 import {
@@ -22,7 +17,6 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
-  ReferenceArea,
   Dot,
 } from 'recharts';
 import { useScoreStore } from '../../stores/scoreStore';
@@ -90,71 +84,40 @@ interface LiveDotProps {
 const LiveDot: React.FC<LiveDotProps> = ({ cx = 0, cy = 0, index = 0, dataLength }) => {
   const isLast = index === dataLength - 1;
   if (!isLast) {
-    return <Dot cx={cx} cy={cy} r={5} fill="var(--color-primary)" stroke="var(--color-surface)" strokeWidth={2} />;
+    return <Dot cx={cx} cy={cy} r={5} fill="var(--color-comprehension)" stroke="var(--color-surface)" strokeWidth={2} />;
   }
   // 마지막 포인트: 이중 원 강조 (라이브 표시)
   return (
     <g>
-      <circle cx={cx} cy={cy} r={10} fill="var(--color-primary)" fillOpacity={0.2} />
-      <circle cx={cx} cy={cy} r={6} fill="var(--color-primary)" stroke="var(--color-surface)" strokeWidth={2} />
+      <circle cx={cx} cy={cy} r={10} fill="var(--color-comprehension)" fillOpacity={0.2} />
+      <circle cx={cx} cy={cy} r={6} fill="var(--color-comprehension)" stroke="var(--color-surface)" strokeWidth={2} />
     </g>
   );
 };
 
 // ── 메인 차트 ────────────────────────────────────────────────────────
-interface LiteracyScoreChartProps {
+interface SessionLiveChartProps {
   /** 높이 (기본 260px) */
   height?: number;
   /** 범례 숨김 여부 */
   hideLegend?: boolean;
 }
 
-export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
+export const SessionLiveChart: React.FC<SessionLiveChartProps> = ({
   height = 260,
   hideLegend = false,
 }) => {
-  const { weeklyScoreSeries, literacyScore } = useScoreStore();
-
-  // 요일 및 차트 동적 데이터 변환
-  const DAYS = useMemo(() => ['월', '화', '수', '목', '금', '토', '일'], []);
-  const todayLabel = useMemo(() => {
-    const todayIdx = (new Date().getDay() + 6) % 7; // 월=0, 일=6
-    return DAYS[todayIdx];
-  }, [DAYS]);
-
-  const chartData = useMemo(() => {
-    return DAYS.map((day) => {
-      const found = weeklyScoreSeries.find(d => d.label === day);
-      return {
-        label: day,
-        lastWeek: found?.lastWeek ?? null,
-        thisWeek: found?.thisWeek ?? null,
-      };
-    });
-  }, [weeklyScoreSeries, DAYS]);
-
-  // 데이터 없음(정보 없음) 처리
-  const hasData = weeklyScoreSeries.length > 0;
-
-  if (!hasData) {
-    return (
-      <div style={{ height, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-surface-alt)', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>📊</div>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px', fontWeight: 600 }}>아직 분석할 데이터가 없습니다.</p>
-        <p style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginTop: '4px' }}>확장 프로그램을 켜고 글을 하나 이상 읽어주세요!</p>
-      </div>
-    );
-  }
+  const { scoreSeries, literacyScore } = useScoreStore();
 
   // 최대 향상폭 계산 (배지/헤더 표시용)
   const maxGap = useMemo(() => {
-    if (weeklyScoreSeries.length < 2) return 0;
-    return Math.max(...weeklyScoreSeries.map((d: ScoreDataPoint) => (d.thisWeek || 0) - (d.lastWeek || 0)));
-  }, [weeklyScoreSeries]);
+    if (scoreSeries.length < 2) return 0;
+    return Math.max(...scoreSeries.map((d: ScoreDataPoint) => (d.thisWeek || 0) - (d.lastWeek || 0)));
+  }, [scoreSeries]);
 
-  const currentScore = weeklyScoreSeries.length > 0
-    ? weeklyScoreSeries[weeklyScoreSeries.length - 1].thisWeek
-    : literacyScore;
+  const currentScore = scoreSeries.length > 0
+    ? (scoreSeries[scoreSeries.length - 1].thisWeek || 0)
+    : (literacyScore || 0);
 
   return (
     <div>
@@ -170,7 +133,7 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
           color: 'var(--color-text-muted)',
           fontFamily: 'var(--font-sans)',
         }}>
-          AI 케어 에이전트 개입 전/후 Literacy Score
+          이번 세션 Literacy Score 변화
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -185,13 +148,13 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
           }}>
             <span style={{
               width: '6px', height: '6px', borderRadius: '50%',
-              backgroundColor: 'var(--color-primary)',
+              backgroundColor: 'var(--color-comprehension)',
               display: 'inline-block',
             }} />
             <span style={{
               fontSize: 'var(--text-xs)',
               fontWeight: 700,
-              color: 'var(--color-primary)',
+              color: 'var(--color-comprehension)',
               fontFamily: 'var(--font-sans)',
               fontVariantNumeric: 'tabular-nums',
             }}>
@@ -214,7 +177,7 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
       </div>
 
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={chartData} margin={{ top: 8, right: 20, left: -8, bottom: 0 }}>
+        <LineChart data={scoreSeries} margin={{ top: 8, right: 20, left: -8, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
 
           <XAxis
@@ -230,14 +193,6 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
             tickLine={false}
           />
 
-          {/* 오늘 요일 배너(하이라이트) */}
-          <ReferenceArea 
-            x1={todayLabel} 
-            x2={todayLabel} 
-            fill="var(--color-primary)" 
-            fillOpacity={0.08} 
-          />
-
           <Tooltip content={<CustomTooltip />} />
           {!hideLegend && (
             <Legend wrapperStyle={{ fontFamily: 'var(--font-sans)', fontSize: '12px', paddingTop: '12px' }} />
@@ -251,38 +206,36 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
             label={{ value: '평균', fill: 'var(--color-text-muted)', fontSize: 10, fontFamily: 'var(--font-sans)' }}
           />
 
-          {/* 케어 미적용 (점선) */}
+          {/* 저번주 (점선) */}
           <Line
             type="monotone"
-            dataKey="before"
-            name="케어 미적용"
+            dataKey="lastWeek"
+            name="기준선(Baseline)"
             stroke="var(--color-text-muted)"
             strokeWidth={2}
             strokeDasharray="6 3"
-            connectNulls
             dot={{ fill: 'var(--color-text-muted)', r: 4, stroke: 'var(--color-surface)', strokeWidth: 2 }}
             activeDot={{ r: 6 }}
             isAnimationActive={true}
             animationDuration={600}
           />
 
-          {/* 케어 적용 (실선 — 라이브 Dot 포함, 시인성 대폭 강화) */}
+          {/* 이번주 (실선 — 라이브 Dot 포함) */}
           <Line
             type="monotone"
-            dataKey="after"
-            name="케어 적용"
-            stroke="var(--color-primary)"
-            strokeWidth={4}
-            connectNulls
+            dataKey="thisWeek"
+            name="현재 세션"
+            stroke="var(--color-comprehension)"
+            strokeWidth={3}
             dot={(props) => (
               <LiveDot
                 cx={props.cx}
                 cy={props.cy}
                 index={props.index}
-                dataLength={weeklyScoreSeries.length}
+                dataLength={scoreSeries.length}
               />
             )}
-            activeDot={{ r: 8, stroke: 'var(--color-primary)', strokeWidth: 2, fill: 'var(--color-surface)' }}
+            activeDot={{ r: 8, stroke: 'var(--color-comprehension)', strokeWidth: 2, fill: 'var(--color-surface)' }}
             isAnimationActive={true}
             animationDuration={800}
             animationEasing="ease-out"
@@ -293,4 +246,4 @@ export const LiteracyScoreChart: React.FC<LiteracyScoreChartProps> = ({
   );
 };
 
-export default LiteracyScoreChart;
+export default SessionLiveChart;

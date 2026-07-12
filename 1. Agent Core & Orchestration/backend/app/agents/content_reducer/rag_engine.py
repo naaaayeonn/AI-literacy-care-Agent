@@ -369,7 +369,7 @@ def inject_rag_terms(chunks: list[ChunkDict]) -> list[ChunkDict]:
     청크 목록에서 전문 용어를 추출하고 RAG 기반 풀이를 주입한다.
 
     Args:
-        chunks: ChunkDict 목록 (restructured_text 포함 권장)
+        chunks: ChunkDict 목록
 
     Returns:
         terms 필드가 추가된 ChunkDict 목록
@@ -378,9 +378,7 @@ def inject_rag_terms(chunks: list[ChunkDict]) -> list[ChunkDict]:
     """
     try:
         for chunk in chunks:
-            search_text = (
-                chunk.get("restructured_text") or chunk["original_text"]
-            )
+            search_text = chunk["original_text"]
             matched = _find_terms(search_text)
 
             chunk_terms: list[TermDict] = []

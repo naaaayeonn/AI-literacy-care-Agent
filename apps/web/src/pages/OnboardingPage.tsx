@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Brain, User, ClipboardList, Timer, Lightbulb, Rocket, Book, BookOpen, Flag, BarChart2, AlertCircle, Target, CheckCircle2 } from 'lucide-react';
 import { useSessionConfig } from '../stores/sessionConfigStore';
 import { Button } from '../components/common/Button';
 import { useAuthStore } from '../stores/authStore';
@@ -138,7 +139,7 @@ export default function OnboardingPage() {
         {step === 'consent' && (
           <div>
             <div className="text-center mb-6">
-              <div className="text-4xl mb-3 select-none">🧠</div>
+              <div className="flex justify-center mb-4 select-none" style={{ color: 'var(--color-primary)' }}><Brain size={48} strokeWidth={1.5} /></div>
               <h1
                 className="text-xl font-bold"
                 style={{ color: 'var(--color-primary)', letterSpacing: 'var(--tracking-kr)' }}
@@ -154,8 +155,8 @@ export default function OnboardingPage() {
               className="rounded-lg p-4 mb-4 text-sm"
               style={{ backgroundColor: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
             >
-              <div className="flex items-center gap-2 font-semibold mb-1">
-                <span>🕶️</span>
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <span style={{ color: 'var(--color-text-secondary)' }}><User size={16} /></span>
                 <span>익명으로 시작</span>
               </div>
               <p style={{ color: 'var(--color-text-secondary)', lineHeight: 'var(--leading-normal)' }}>
@@ -168,8 +169,9 @@ export default function OnboardingPage() {
               className="rounded-lg p-4 mb-5 text-xs"
               style={{ backgroundColor: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
-              <div className="font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
-                📋 개인정보 처리 안내
+              <div className="font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+                <ClipboardList size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                개인정보 처리 안내
               </div>
               <ul className="space-y-1 list-disc pl-4">
                 <li>수집 항목: 익명 ID, 읽기 행동(스크롤·체류·이탈), 퀴즈 응답</li>
@@ -207,7 +209,7 @@ export default function OnboardingPage() {
         {/* 2. 안내 및 준비 단계 */}
         {step === 'intro' && (
           <div className="text-center">
-            <div className="text-4xl mb-4">⏱️</div>
+            <div className="flex justify-center mb-5" style={{ color: 'var(--color-primary)' }}><Timer size={48} strokeWidth={1.5} /></div>
             <h2 className="text-xl font-bold mb-3" style={{ color: 'var(--color-primary)' }}>
               개인 맞춤형 독서 분석 설정
             </h2>
@@ -222,7 +224,7 @@ export default function OnboardingPage() {
               className="rounded-lg p-4 mb-6 text-left text-xs"
               style={{ backgroundColor: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
             >
-              <div className="font-semibold mb-1">💡 측정 진행 가이드</div>
+              <div className="font-semibold mb-2 flex items-center gap-1.5"><Lightbulb size={14} style={{ color: '#fbbf24' }} /> 측정 진행 가이드</div>
               <ol className="list-decimal pl-4 space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
                 <li>텍스트 박스 내부를 아래로 천천히 스크롤하며 읽습니다.</li>
                 <li>마지막 단락까지 모두 읽으신 후 아래 <b>[다 읽었습니다]</b> 버튼을 누릅니다.</li>
@@ -236,7 +238,7 @@ export default function OnboardingPage() {
               className="w-full"
               onClick={startCalibrationEasy}
             >
-              독서 스타일 분석 시작 🚀
+              <span className="flex items-center justify-center gap-2">독서 스타일 분석 시작 <Rocket size={18} /></span>
             </Button>
           </div>
         )}
@@ -245,8 +247,8 @@ export default function OnboardingPage() {
         {step === 'calibration_easy' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 font-semibold">
-                1단계: 쉬운 글 읽기 📗
+              <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 font-semibold">
+                <Book size={14} /> 1단계: 쉬운 글 읽기
               </span>
               <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 실시간 속도: <strong className="text-blue-500">{currentVelocity} px/ms</strong>
@@ -283,7 +285,7 @@ export default function OnboardingPage() {
               onClick={completeCalibrationEasy}
               style={{ opacity: scrollVelocities.length >= 15 ? 1 : 0.6 }}
             >
-              {scrollVelocities.length < 15 ? "더 안정적인 속도 측정을 위해 글을 조금 더 읽어주세요..." : "다 읽었습니다 👍"}
+              {scrollVelocities.length < 15 ? "더 안정적인 속도 측정을 위해 글을 조금 더 읽어주세요..." : <span className="flex items-center justify-center gap-2">다 읽었습니다 <CheckCircle2 size={18} /></span>}
             </Button>
           </div>
         )}
@@ -292,8 +294,8 @@ export default function OnboardingPage() {
         {step === 'calibration_hard' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 font-semibold">
-                2단계: 어려운 글 읽기 📘
+              <span className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 font-semibold">
+                <BookOpen size={14} /> 2단계: 어려운 글 읽기
               </span>
               <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 실시간 속도: <strong className="text-purple-500">{currentVelocity} px/ms</strong>
@@ -330,7 +332,7 @@ export default function OnboardingPage() {
               onClick={completeCalibrationHard}
               style={{ opacity: scrollVelocities.length >= 15 ? 1 : 0.6 }}
             >
-              {scrollVelocities.length < 15 ? "더 안정적인 속도 측정을 위해 글을 조금 더 읽어주세요..." : "분석 완료하기 🏁"}
+              {scrollVelocities.length < 15 ? "더 안정적인 속도 측정을 위해 글을 조금 더 읽어주세요..." : <span className="flex items-center justify-center gap-2">분석 완료하기 <Flag size={18} /></span>}
             </Button>
           </div>
         )}
@@ -338,7 +340,7 @@ export default function OnboardingPage() {
         {/* 5. 분석 완료 결과 피드백 단계 */}
         {step === 'result' && (
           <div className="text-center">
-            <div className="text-4xl mb-4">📊</div>
+            <div className="flex justify-center mb-5" style={{ color: 'var(--color-primary)' }}><BarChart2 size={48} strokeWidth={1.5} /></div>
             <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--color-primary)' }}>
               독서 스타일 분석 완료!
             </h2>
@@ -353,7 +355,9 @@ export default function OnboardingPage() {
                 borderColor: 'var(--color-border)' 
               }}
             >
-              <h4 className="font-semibold text-sm mb-3">📋 나의 독서 스크롤 기준선</h4>
+              <h4 className="font-semibold text-sm mb-4 flex items-center gap-1.5">
+                <ClipboardList size={16} style={{ color: 'var(--color-text-secondary)' }} /> 나의 독서 스크롤 기준선
+              </h4>
               
               <div className="space-y-4">
                 <div>
@@ -383,8 +387,9 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="text-[11px] mt-4 p-2.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-relaxed">
-                📢 이 기준선보다 과도하게 빠른 속도로 스크롤할 경우 <b>"대충 훑어 읽기(Skimming)"</b>로 감지되어 실시간 집중도 케어 비서가 작동합니다.
+              <div className="text-[11px] mt-5 p-3 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 leading-relaxed flex gap-2 items-start">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <span>이 기준선보다 과도하게 빠른 속도로 스크롤할 경우 <b>"대충 훑어 읽기(Skimming)"</b>로 감지되어 실시간 집중도 케어 비서가 작동합니다.</span>
               </div>
             </div>
 
@@ -394,7 +399,7 @@ export default function OnboardingPage() {
               className="w-full animate-bounce"
               onClick={() => navigate('/home', { replace: true })}
             >
-              케어 시작하기! 🎯
+              <span className="flex items-center justify-center gap-2">케어 시작하기! <Target size={18} /></span>
             </Button>
           </div>
         )}

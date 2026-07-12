@@ -72,8 +72,11 @@ export interface QuizData {
   quizId: string;
   question: string;
   options: string[];
-  correctOption: string;       // 실제 UI에서는 숨기고, 제출 후 서버 검증
+  // 정답은 서버 채점(제출 응답의 correct)으로 판정한다. canonical 계약상 payload로
+  // 내려오지 않으므로 optional. (구버전 호환 위해 타입만 남겨둠)
+  correctOption?: string | number;
   explanation?: string;
+  statement?: string;          // 확장 overlay 호환(question과 동일 값)
 }
 
 export interface InterventionCommand {
@@ -83,7 +86,7 @@ export interface InterventionCommand {
     nudgeLevel?: 'soft' | 'medium' | 'hard';
     nudgeMessage?: string;
     // quiz
-    quiz?: QuizData;
+    quizzes?: QuizData[];
     // highlight
     highlights?: HighlightRange[];
     // score_update (실시간 갱신)
@@ -146,7 +149,7 @@ export interface GrowthReportResponse {
 // API fetch stub (TODO 7/6 실구현)
 // ──────────────────────────────────────────────
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 export const api = {
   /** 세션 시작 — 기사 로드 및 REST 엔드포인트 수신 */
@@ -218,6 +221,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, events }),
+      keepalive: true,
     });
     if (res.ok) {
       const data = await res.json();

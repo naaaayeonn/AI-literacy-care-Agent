@@ -20,6 +20,7 @@
         "shared/tracker.js",
         "shared/overlay.js",
         "shared/debug_monitor.js",
+        "shared/reading_progress.js",
         "shared/session_client.js",
         "content/content_script.js"
       ],

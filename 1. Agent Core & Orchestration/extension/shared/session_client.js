@@ -8,7 +8,7 @@
 // 전송: 이벤트를 큐에 모아 FLUSH_INTERVAL_MS마다(또는 blur/pause 즉시) POST /events →
 //       응답의 개입 명령을 overlay로 렌더. 고정주기 폴링 아님(이벤트 구동).
 window.ALC_Session = (() => {
-  function create({ cfg, userId, extract, getProgress, overlay, scrollTarget = window }) {
+  function create({ cfg, userId, extract, getProgress, getReadChunkIndex, overlay, scrollTarget = window }) {
     const s = { id: null, queue: [], flushTimer: null, tracker: null, started: false };
 
     async function start() {
@@ -40,6 +40,7 @@ window.ALC_Session = (() => {
       if (window.ALC_Debug) window.ALC_Debug.attachSession(s.id);
       s.tracker = ALC_Tracker.create({
         getProgress,
+        getReadChunkIndex,
         onEvent: enqueue,
         scrollTarget,
         scrollThrottleMs: cfg.SCROLL_THROTTLE_MS,
@@ -88,10 +89,29 @@ window.ALC_Session = (() => {
           overlay.toast(p.nudgeMessage || "핵심 문장에 집중해볼까요?", "highlight");
           break;
         case "quiz":
-          overlay.toast(p.nudgeMessage || "방금 읽은 내용을 퀴즈로 확인해보세요!", "quiz");
+          // O/X 문항: quiz_data가 실려 오면 카드+버튼으로 띄우고 선택을 채점한다.
+          // (측정 보장 트리거로 집중이 좋아도 뜰 수 있음). quiz 없으면 안내 토스트 폴백.
+          if (p.quiz && p.quiz.quizId) {
+            overlay.quiz(p.quiz, (selected) => submitQuiz(p.quiz.quizId, selected));
+          } else {
+            overlay.toast(p.nudgeMessage || "방금 읽은 내용을 퀴즈로 확인해보세요!", "quiz");
+          }
           break;
         // score_update: 배지는 위에서 이미 갱신됨(별도 처리 불필요).
       }
+    }
+
+    // O/X 답안 채점 요청 → {correct, explanation, focusRecovered, xpEarned}.
+    // overlay.quiz의 onAnswer 콜백으로 넘겨져 결과·해설 렌더에 쓰인다.
+    async function submitQuiz(quizId, selectedOption) {
+      if (!s.id) return null;
+      const res = await fetch(`${cfg.API_BASE}/api/session/${s.id}/quiz/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quizId, selectedOption }),
+      });
+      if (!res.ok) throw new Error(`quiz submit ${res.status}`);
+      return await res.json();
     }
 
     async function stop() {

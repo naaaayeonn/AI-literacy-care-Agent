@@ -5,8 +5,8 @@ from datetime import datetime
 
 # --- Session ---
 class BaselineScrollSpeed(BaseModel):
-    easy: int
-    hard: int
+    easy: float
+    hard: float
 
 class SessionStartRequest(BaseModel):
     userId: str

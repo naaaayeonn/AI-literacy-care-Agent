@@ -12,11 +12,18 @@ window.ALC_Tracker = (() => {
 
   function create({
     getProgress,
+    getReadChunkIndex,
     onEvent,
     scrollTarget = window,
     scrollThrottleMs = 120,
     idleMs = 0,
   }) {
+    // 본문 기준 진행률(§4)이 제공되면 "지금 읽는 문단 인덱스"를 이벤트에 함께 싣는다.
+    const readChunkIndex = () => {
+      if (!getReadChunkIndex) return null;
+      const idx = getReadChunkIndex();
+      return typeof idx === "number" ? idx : null;
+    };
     const startedAt = Date.now();
     const now = () => Date.now() - startedAt; // 세션 상대 ms(정수)
     let lastScrollAt = 0;
@@ -77,11 +84,13 @@ window.ALC_Tracker = (() => {
       lastOffset = offset;
       lastPosition = scrollProgress;
       // velocity(px/ms)는 3번 집중도 로직이 읽는 계약 필드. speed_pct_s는 모니터 표시용.
+      const idx = readChunkIndex();
       emit("scroll", {
         position,
         duration_ms: interval,
         velocity: Math.round(pxPerMs * 100) / 100,
         speed_pct_s: Math.round(pctPerSec * 10) / 10,
+        ...(idx != null ? { readChunkIndex: idx } : {}),
       });
     }
 
@@ -100,10 +109,13 @@ window.ALC_Tracker = (() => {
     function resetIdle() {
       if (!idleMs) return;
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(
-        () => emit("pause", { position: clamp01(getProgress()) }),
-        idleMs
-      );
+      idleTimer = setTimeout(() => {
+        const idx = readChunkIndex();
+        emit("pause", {
+          position: clamp01(getProgress()),
+          ...(idx != null ? { readChunkIndex: idx } : {}),
+        });
+      }, idleMs);
     }
 
     function attach() {

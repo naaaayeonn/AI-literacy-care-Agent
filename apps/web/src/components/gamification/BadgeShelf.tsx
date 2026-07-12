@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BookOpen, Zap, Target, Flame } from 'lucide-react';
 import { useScoreStore } from '../../stores/scoreStore';
 
 // 전체 배지 카탈로그
 const BADGE_CATALOG = [
-  { id: 'first-read',    emoji: '📚', name: '첫 완독',    desc: '첫 번째 글을 끝까지 읽었어요!' },
-  { id: 'focus-master',  emoji: '⚡', name: '초집중 리더', desc: '평균 집중도 90% 이상 달성!' },
-  { id: 'vocab-master',  emoji: '🎯', name: '어휘 마스터', desc: '용어 툴팁을 10번 이상 확인했어요!' },
-  { id: 'streak-3',      emoji: '🔥', name: '3일 연속',   desc: '3일 연속 읽기 세션 완료!' },
+  { id: 'first-read',    icon: BookOpen, name: '첫 완독',    desc: '첫 번째 글을 끝까지 읽었어요!' },
+  { id: 'focus-master',  icon: Zap,      name: '초집중 리더', desc: '평균 집중도 90% 이상 달성!' },
+  { id: 'vocab-master',  icon: Target,   name: '어휘 마스터', desc: '용어 툴팁을 10번 이상 확인했어요!' },
+  { id: 'streak-3',      icon: Flame,    name: '3일 연속',   desc: '3일 연속 읽기 세션 완료!' },
 ];
 
 interface BadgeShelfProps {
@@ -35,7 +36,7 @@ export const BadgeShelf: React.FC<BadgeShelfProps> = ({ compact = false }) => {
           <BadgeItem
             key={badge.id}
             id={badge.id}
-            emoji={badge.emoji}
+            icon={badge.icon}
             name={badge.name}
             desc={badge.desc}
             acquired={acquired}
@@ -50,7 +51,7 @@ export const BadgeShelf: React.FC<BadgeShelfProps> = ({ compact = false }) => {
 
 interface BadgeItemProps {
   id: string;
-  emoji: string;
+  icon: React.ElementType;
   name: string;
   desc: string;
   acquired: boolean;
@@ -59,7 +60,7 @@ interface BadgeItemProps {
 }
 
 const BadgeItem: React.FC<BadgeItemProps> = ({
-  emoji,
+  icon: Icon,
   name,
   desc,
   acquired,
@@ -112,7 +113,7 @@ const BadgeItem: React.FC<BadgeItemProps> = ({
           transition: 'border-color 0.3s, box-shadow 0.3s, opacity 0.3s',
         }}
       >
-        {emoji}
+        <Icon size={compact ? 18 : 24} />
       </motion.div>
 
       {/* compact 모드가 아닐 때 배지 이름 표시 */}
@@ -157,7 +158,7 @@ const BadgeItem: React.FC<BadgeItemProps> = ({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '16px' }}>{emoji}</span>
+              <span style={{ color: acquired ? 'var(--color-primary)' : 'var(--color-text-muted)' }}><Icon size={16} /></span>
               <span style={{ fontWeight: 700, fontSize: 'var(--text-xs)', color: 'var(--color-text)' }}>
                 {name}
               </span>
@@ -179,7 +180,7 @@ const BadgeItem: React.FC<BadgeItemProps> = ({
               }}
             >
               <span style={{ color: acquired ? 'var(--color-growth)' : 'var(--color-text-muted)' }}>
-                {acquired ? '획득 완료 🎖️' : '미획득 🔒'}
+                {acquired ? '획득 완료' : '미획득'}
               </span>
               {acquired && formattedDate && (
                 <span style={{ color: 'var(--color-text-muted)' }}>{formattedDate}</span>

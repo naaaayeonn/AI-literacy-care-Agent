@@ -7,7 +7,6 @@
  */
 import { create } from 'zustand';
 import type { ScoreDataPoint, AcquiredBadge } from '../types/shared';
-import { scoreSeries as mockScoreSeries } from '../mock/scoreSeries';
 
 // ── 타입 ──────────────────────────────────────────────────────────────
 export interface QuizResult {
@@ -24,7 +23,8 @@ interface ScoreState {
   xp: number;
   level: number;
   levelProgress: number;
-  scoreSeries: ScoreDataPoint[];  // 히스토리 + 현재 세션 포인트
+  scoreSeries: ScoreDataPoint[];  // 현재 세션 포인트 (라이브 차트용)
+  weeklyScoreSeries: ScoreDataPoint[]; // 주간 요일 데이터 (대시보드 차트용)
   badges: AcquiredBadge[];
   isFinalized: boolean; // 세션 최종 서버 점수 갱신 후 가드용 플래그
 
@@ -39,10 +39,12 @@ interface ScoreState {
   addBadge: (badge: AcquiredBadge) => void;
 
   // 6/26 신규 액션
-  /** 세션 진행 중 실시간 포인트 추가 (차트에 새 점 찍기) */
+  /** 세션 진행 중 실시간 포인트 추가 (세션 라이브 차트에 새 점 찍기) */
   appendLivePoint: (point: ScoreDataPoint) => void;
   /** 마지막 포인트를 갱신 (진행 중 덮어쓰기) */
   updateLiveScore: (after: number) => void;
+  /** 주간 요일 차트용 데이터 업데이트 */
+  updateWeeklyScore: (dayLabel: string, thisWeekScore: number, lastWeekScore?: number) => void;
   /** 퀴즈 결과 기록 → comprehensionScore 재계산 */
   recordQuizResult: (result: QuizResult) => void;
 
@@ -82,6 +84,7 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
   level: 1,
   levelProgress: 0,
   scoreSeries: [],
+  weeklyScoreSeries: [],
   badges: [],
   quizResults: [],
   isFinalized: false,
@@ -106,7 +109,7 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
   // ── 6/26 신규 액션 ──
 
   appendLivePoint: (point) =>
-    set((s) => ({ scoreSeries: [...s.scoreSeries, point] })),
+    set((s) => ({ scoreSeries: [...s.scoreSeries, point] })), // 세션 로직 복원 (누적)
 
   updateLiveScore: (after) =>
     set((s) => {
@@ -115,6 +118,17 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
       const last = updated[updated.length - 1];
       updated[updated.length - 1] = { ...last, after };
       return { scoreSeries: updated };
+    }),
+
+  updateWeeklyScore: (dayLabel, thisWeek, lastWeek) =>
+    set((s) => {
+      const existingIdx = s.weeklyScoreSeries.findIndex(p => p.label === dayLabel);
+      if (existingIdx >= 0) {
+        const updated = [...s.weeklyScoreSeries];
+        updated[existingIdx] = { ...updated[existingIdx], thisWeek, ...(lastWeek !== undefined && { lastWeek }) };
+        return { weeklyScoreSeries: updated };
+      }
+      return { weeklyScoreSeries: [...s.weeklyScoreSeries, { label: dayLabel, thisWeek, lastWeek: lastWeek ?? 0 }] };
     }),
 
   recordQuizResult: (result) =>
@@ -135,21 +149,15 @@ export const useScoreStore = create<ScoreState>((set, get) => ({
 
   restartDemoSession: () =>
     set({
-      literacyScore: 87,
-      comprehensionScore: 82,
-      engagementScore: 91,
-      xp: 265,
-      level: 2,
-      levelProgress: 65,
-      scoreSeries: mockScoreSeries.map((d) => ({
-        label: d.day,
-        before: d.beforeCare,
-        after: d.afterCare,
-      })),
-      badges: [
-        { id: 'first-read',   name: '첫 완독',    emoji: '📚', description: '첫 번째 글을 끝까지 읽었어요!', acquiredAt: new Date().toISOString() },
-        { id: 'focus-master', name: '초집중 리더', emoji: '⚡', description: '평균 집중도 90% 이상 달성!',      acquiredAt: new Date().toISOString() },
-      ],
+      literacyScore: 0,
+      comprehensionScore: 0,
+      engagementScore: 0,
+      xp: 0,
+      level: 1,
+      levelProgress: 0,
+      scoreSeries: [], // 빈 배열로 초기화 (하드코딩 제거)
+      weeklyScoreSeries: [],
+      badges: [],
       quizResults: [],
       isFinalized: false,
     }),

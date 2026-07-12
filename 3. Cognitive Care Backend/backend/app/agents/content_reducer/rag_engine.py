@@ -587,7 +587,11 @@ def _query_woorimalsem_api(word: str, context: str | None = None) -> dict | None
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
             res_content = response.read().decode("utf-8")
-            data = json.loads(res_content)
+            try:
+                data = json.loads(res_content)
+            except json.JSONDecodeError:
+                print(f"[rag_engine] 우리말샘 API JSON 파싱 실패 (서버 오류일 가능성): {res_content[:100]}")
+                return None
 
         # 우리말샘 JSON 응답 구조 파싱
         items = data.get("channel", {}).get("item", [])
@@ -726,32 +730,25 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
     if cleaned_word != word_clean:
         word_candidates.append(cleaned_word)
 
-    if not _TERM_DICT:
-        return TermDict(
-            term=cleaned_word,
-            definition="",
-            source="not_found",
-            faithfulness_score=0.0,
-            chunk_id="",
-            _meta={"tried": tried, "errors": errors}
-        )
-
     # 1. 완벽 매칭 (용어 또는 별칭)
-    tried.append("local")
-    for w in word_candidates:
-        w_lower = w.lower()
-        for entry in _TERM_DICT:
-            term_val = entry.get("term", "")
-            aliases = [a.lower() for a in entry.get("aliases", [])]
-            if term_val.lower() == w_lower or w_lower in aliases:
-                return TermDict(
-                    term=term_val,
-                    definition=entry.get("definition", ""),
-                    source=entry.get("source", "로컬 사전"),
-                    faithfulness_score=1.0,
-                    chunk_id="",
-                    _meta={"tried": tried, "errors": errors}
-                )
+    if not _TERM_DICT:
+        tried.append("local_skipped_no_dict")
+    else:
+        tried.append("local")
+        for w in word_candidates:
+            w_lower = w.lower()
+            for entry in _TERM_DICT:
+                term_val = entry.get("term", "")
+                aliases = [a.lower() for a in entry.get("aliases", [])]
+                if term_val.lower() == w_lower or w_lower in aliases:
+                    return TermDict(
+                        term=term_val,
+                        definition=entry.get("definition", ""),
+                        source=entry.get("source", "로컬 사전"),
+                        faithfulness_score=1.0,
+                        chunk_id="",
+                        _meta={"tried": tried, "errors": errors}
+                    )
 
     # 2. 우리말샘 오픈 API 조회 시도
     api_key_woorimal = os.getenv("WOORIMAL_API_KEY", "") or os.getenv("DICTIONARY_API_KEY", "")
@@ -821,7 +818,12 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
                 )
                 _req = urllib.request.Request(_url, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(_req, timeout=5) as _resp:
-                    _data = json.loads(_resp.read().decode("utf-8"))
+                    _res_content = _resp.read().decode("utf-8")
+                    try:
+                        _data = json.loads(_res_content)
+                    except json.JSONDecodeError:
+                        print(f"[rag_engine] 표준국어대사전 API JSON 파싱 실패: {_res_content[:100]}")
+                        continue
                 _items = _data.get("channel", {}).get("item", [])
                 if isinstance(_items, dict):
                     _items = [_items]
@@ -857,13 +859,12 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
     if context:
         tried.append("llm_snowchat")
         try:
-            from backend.app.agents.content_reducer.snowchat_client import _query_gemini_llm
-            llm_def = _query_gemini_llm(cleaned_word, context)
-            if llm_def:
+            llm_def_str = _query_llm_definition(cleaned_word, context)
+            if llm_def_str:
                 return TermDict(
-                    term=llm_def.get("term", cleaned_word),
-                    definition=llm_def.get("definition", ""),
-                    source=llm_def.get("source", "LLM 문맥 유추"),
+                    term=cleaned_word,
+                    definition=llm_def_str,
+                    source="LLM 문맥 유추",
                     faithfulness_score=1.0,
                     chunk_id="",
                     _meta={"tried": tried, "errors": errors}

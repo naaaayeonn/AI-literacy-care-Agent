@@ -88,15 +88,20 @@ export function useScoreEngine() {
 
     // "케어 미적용" 가상선: 기준선에서 소폭 변동 (실제로는 ①번이 제공)
     const baselineNoise = Math.floor(Math.random() * 6) - 3;
-    const before = Math.max(30, sessionBaseline.current + baselineNoise);
+    const lastWeekScore = Math.max(30, sessionBaseline.current + baselineNoise);
 
     const newPoint: ScoreDataPoint = {
-      label: progressToLabel(milestone),
-      before,
-      after: literacy,
+      label: progressToLabel(milestone), // 세션 라이브 차트용 라벨 복원
+      lastWeek: lastWeekScore,
+      thisWeek: literacy,
     };
 
     appendLivePoint(newPoint);
+
+    // 대시보드 주간 차트용 데이터 동시 업데이트
+    const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+    const todayLabel = DAYS[new Date().getDay()];
+    useScoreStore.getState().updateWeeklyScore(todayLabel, literacy, lastWeekScore);
 
     // 마지막 포인트에서 literacyScore 스토어도 업데이트 및 세션 완료 상태 확정
     if (milestone === 100) {
@@ -112,7 +117,11 @@ export function useScoreEngine() {
     if (quizResults.length === 0) return;
     const { literacy } = calcLiveScores();
     updateLiveScore(literacy);
-    // engagementScore도 최신값으로
+
+    // 대시보드 주간 차트용 데이터 동시 업데이트
+    const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+    const todayLabel = DAYS[new Date().getDay()];
+    useScoreStore.getState().updateWeeklyScore(todayLabel, literacy);
     setLiteracyScore(literacy, calcLiveScores().comprehension, calcLiveScores().engagement);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizResults, isFinalized]);
