@@ -58,15 +58,16 @@ export const QuizCard: React.FC = () => {
 
   const currentQuiz = useMemo<QuizQuestion>(() => {
     if (activeQuiz) {
-      // correctOption이 숫자형(1-indexed)일 경우와 문자열일 경우 모두 지원
-      let correctIdx = 0;
-      if (typeof activeQuiz.correctOption === 'number') {
-        correctIdx = activeQuiz.correctOption > 0 ? activeQuiz.correctOption - 1 : 0;
-      } else {
-        const idx = activeQuiz.options.indexOf(activeQuiz.correctOption);
-        if (idx >= 0) correctIdx = idx;
+      // 정답 판정은 서버 채점(제출 응답)으로 한다 → 로컬 correctIndex는 기본 -1.
+      // 구버전 호환: correctOption이 함께 오면(숫자 1-indexed 또는 옵션 문자열) 참고용으로 반영.
+      let correctIdx = -1;
+      const co = activeQuiz.correctOption;
+      if (typeof co === 'number') {
+        correctIdx = co > 0 ? co - 1 : 0;
+      } else if (typeof co === 'string') {
+        correctIdx = activeQuiz.options.indexOf(co);
       }
-      
+
       return {
         id: activeQuiz.quizId,
         question: activeQuiz.question,
@@ -82,6 +83,10 @@ export const QuizCard: React.FC = () => {
   const [phase, setPhase] = useState<QuizPhase>('answering');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(30); // 30초 타이머
+  // 서버 채점 결과(정답은 payload로 오지 않으므로 제출 응답을 신뢰한다).
+  // revealCorrectIndex: 하이라이트할 정답 인덱스(O/X는 역산), serverExplanation: 서버 해설.
+  const [revealCorrectIndex, setRevealCorrectIndex] = useState<number | null>(null);
+  const [serverExplanation, setServerExplanation] = useState<string | null>(null);
 
   // 타이머
   useEffect(() => {
@@ -99,9 +104,29 @@ export const QuizCard: React.FC = () => {
     async (index: number) => {
       if (phase !== 'answering') return;
       setSelectedIndex(index);
-      const isCorrect = index === currentQuiz.correctIndex;
-      setPhase(isCorrect ? 'correct' : 'incorrect');
 
+      // 서버 채점을 신뢰한다. 정답(answer)은 payload로 오지 않으므로 client 비교는 불가
+      // (correctOption 미제공 시 항상 index0을 정답 처리하던 버그를 제거). 제출 응답의
+      // correct/explanation을 사용하고, 네트워크 실패 시에만 로컬 correctIndex로 폴백한다.
+      let isCorrect: boolean;
+      let explanationFromServer: string | null = null;
+      try {
+        const res = await api.submitQuizAnswer(sessionId || '', currentQuiz.id, currentQuiz.options[index]);
+        isCorrect = !!(res && res.correct);
+        if (res && typeof res.explanation === 'string') explanationFromServer = res.explanation;
+      } catch (err) {
+        console.error('[API] Failed to submit quiz answer, fallback to local grading:', err);
+        isCorrect = index === currentQuiz.correctIndex;
+      }
+
+      // O/X(2지선다)는 (내 선택, 정답여부)로 정답 인덱스를 역산해 하이라이트한다.
+      // (사지선다 하위호환 모드는 로컬 correctIndex 유지)
+      const resolvedCorrectIdx =
+        currentQuiz.options.length === 2 ? (isCorrect ? index : 1 - index) : currentQuiz.correctIndex;
+      setRevealCorrectIndex(resolvedCorrectIdx);
+      if (explanationFromServer) setServerExplanation(explanationFromServer);
+
+      setPhase(isCorrect ? 'correct' : 'incorrect');
       if (isCorrect) {
         // 정답: XP 지급 + 집중도 회복
         addXp(currentQuiz.xpReward);
@@ -114,13 +139,6 @@ export const QuizCard: React.FC = () => {
         xpAwarded: isCorrect ? currentQuiz.xpReward : 0,
         timestamp: Date.now(),
       });
-
-      // API submit
-      try {
-        await api.submitQuizAnswer(sessionId || '', currentQuiz.id, currentQuiz.options[index]);
-      } catch (err) {
-        console.error('[API] Failed to submit quiz answer:', err);
-      }
     },
     [phase, currentQuiz, addXp, setFocusScore, focusScore, recordQuizResult, sessionId]
   );
@@ -132,7 +150,13 @@ export const QuizCard: React.FC = () => {
     setPhase('answering');
     setSelectedIndex(null);
     setTimeLeft(30);
+    setRevealCorrectIndex(null);
+    setServerExplanation(null);
   }, [dismissQuiz, dismissNudge, setActiveQuiz]);
+
+  // 하이라이트/해설: 서버 채점 결과가 있으면 그것을, 없으면(사지선다 하위호환·시간초과) 로컬값.
+  const effectiveCorrectIndex = revealCorrectIndex ?? currentQuiz.correctIndex;
+  const feedbackExplanation = serverExplanation ?? currentQuiz.explanation;
 
   const timerPercent = (timeLeft / 30) * 100;
   const timerColor =
@@ -246,7 +270,7 @@ export const QuizCard: React.FC = () => {
                   <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
                     {currentQuiz.options.map((option, index) => {
                       const isSelected = selectedIndex === index;
-                      const isCorrectOption = index === currentQuiz.correctIndex;
+                      const isCorrectOption = index === effectiveCorrectIndex;
                       const revealed = phase !== 'answering';
                       const isO = option === 'O' || option === '맞다';
 
@@ -324,7 +348,7 @@ export const QuizCard: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
                   {currentQuiz.options.map((option, index) => {
                     const isSelected = selectedIndex === index;
-                    const isCorrectOption = index === currentQuiz.correctIndex;
+                    const isCorrectOption = index === effectiveCorrectIndex;
                     const revealed = phase !== 'answering';
 
                     let bg = 'var(--color-surface)';
@@ -452,7 +476,7 @@ export const QuizCard: React.FC = () => {
                             lineHeight: 'var(--leading-relaxed)',
                           }}
                         >
-                          {currentQuiz.explanation}
+                          {feedbackExplanation}
                         </p>
                       </div>
 
