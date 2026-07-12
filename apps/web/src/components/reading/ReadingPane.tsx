@@ -248,14 +248,12 @@ export const ReadingPane: React.FC = () => {
     arm();
     document.addEventListener('scroll', onActivity, true);
     document.addEventListener('wheel', onActivity, { passive: true });
-    document.addEventListener('mousemove', onActivity);
     document.addEventListener('keydown', onActivity);
     document.addEventListener('touchmove', onActivity, { passive: true });
     return () => {
       clearTimeout(timer);
       document.removeEventListener('scroll', onActivity, true);
       document.removeEventListener('wheel', onActivity);
-      document.removeEventListener('mousemove', onActivity);
       document.removeEventListener('keydown', onActivity);
       document.removeEventListener('touchmove', onActivity);
     };
