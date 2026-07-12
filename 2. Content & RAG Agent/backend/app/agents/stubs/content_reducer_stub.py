@@ -39,7 +39,7 @@ def content_reducer_stub(state: "ReadingSessionState") -> "ReadingSessionState":
 
     실제 Claude API / Vector DB 없이 동작한다.
     readability + chunking은 실제 로직을 사용하고,
-    재구성과 용어풀이는 미리 정의된 더미 데이터를 반환한다.
+    용어풀이는 미리 정의된 더미 데이터를 반환한다.
 
     Args:
         state: ReadingSessionState
@@ -73,12 +73,8 @@ def content_reducer_stub(state: "ReadingSessionState") -> "ReadingSessionState":
             }
         ]
 
-    # 더미 재구성 텍스트 주입
+    # 더미 용어 주입
     for chunk in chunks:
-        chunk["restructured_text"] = (
-            f"[Stub 재구성] {chunk['original_text'][:120]}"
-        )
-        # 더미 용어 주입
         chunk["terms"] = [
             {
                 "term": "인공지능",
@@ -91,7 +87,7 @@ def content_reducer_stub(state: "ReadingSessionState") -> "ReadingSessionState":
 
     # 전체 simplified_text
     simplified_text = "\n\n".join(
-        ch.get("restructured_text", ch["original_text"]) for ch in chunks
+        ch["original_text"] for ch in chunks
     )
 
     # terms 중복 제거

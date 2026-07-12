@@ -62,7 +62,6 @@ def test_full_pipeline_e2e_real_mode_demo(sample_state):
         assert processed_state["session_id"] == "session_e2e_001"
         assert 0.0 <= processed_state["readability_score"] <= 100.0
         assert 0.0 <= processed_state["difficulty_score"] <= 100.0
-        assert abs(processed_state["readability_score"] + processed_state["difficulty_score"] - 100.0) < 0.1
         
         # 3. 청크 확인
         chunks = processed_state["chunks"]
@@ -71,8 +70,6 @@ def test_full_pipeline_e2e_real_mode_demo(sample_state):
         for i, chunk in enumerate(chunks, start=1):
             assert chunk["chunk_id"] == f"chunk_doc_e2e_test_{i:02d}"
             assert len(chunk["original_text"]) > 0
-            assert "restructured_text" in chunk
-            assert len(chunk["restructured_text"]) > 0
             assert 0.0 <= chunk["difficulty"] <= 100.0
             assert chunk["char_start"] < chunk["char_end"]
             assert "terms" in chunk
@@ -99,7 +96,7 @@ def test_full_pipeline_e2e_real_mode_demo(sample_state):
         
         # 7. 개입 퀴즈 생성 호출 검증 (첫 번째 청크 기준)
         target_chunk = chunks[0]
-        quiz = generate_quiz(target_chunk["chunk_id"], target_chunk["restructured_text"])
+        quiz = generate_quiz(target_chunk["chunk_id"], target_chunk["original_text"])
         
         assert quiz["chunk_id"] == target_chunk["chunk_id"]
         assert len(quiz["question"]) > 0
@@ -120,4 +117,4 @@ def test_stub_toggle_mode(sample_state):
         
         # stub 응답 검증
         assert len(processed_state["chunks"]) >= 1
-        assert "[Stub 재구성]" in processed_state["simplified_text"]
+        assert len(processed_state["simplified_text"]) > 0

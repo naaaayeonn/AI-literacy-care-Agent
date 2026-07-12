@@ -10,6 +10,7 @@ from backend.app.agents.content_reducer.readability import (
     analyze_readability,
     calculate_difficulty_score,
     get_readability_label,
+    get_technical_term_density,
 )
 
 
@@ -77,17 +78,23 @@ class TestAnalyzeReadability:
 
 class TestCalculateDifficultyScore:
 
-    def test_difficulty_is_inverse_of_readability(self):
-        """difficulty_score = 100 - readability_score여야 한다."""
+    def test_difficulty_is_inverse_for_numeric_fallback(self):
+        """숫자 입력 시 하위 호환을 위해 difficulty_score = 100 - readability_score 가 보장되어야 한다."""
         readability = 72.5
         difficulty = calculate_difficulty_score(readability)
         assert abs(difficulty - (100.0 - readability)) < 0.001
 
-    def test_returns_in_range(self):
-        """결과가 0~100 범위에 있어야 한다."""
-        for r in [0.0, 25.0, 50.0, 75.0, 100.0]:
-            d = calculate_difficulty_score(r)
-            assert 0.0 <= d <= 100.0
+    def test_difficulty_independent_for_text_input(self):
+        """텍스트 입력 시 전문 용어 밀도 기반으로 완전히 독립된 난이도 점수(0~100)를 반환해야 한다."""
+        hard_text = "이것은 가건물 이며 또 임시 건물 입니다." # 표준전문용어 밀집
+        easy_text = "하늘에 뭉게구름이 둥실둥실 떠 있습니다." # 일반 텍스트
+        
+        diff_hard = calculate_difficulty_score(hard_text)
+        diff_easy = calculate_difficulty_score(easy_text)
+        
+        assert diff_hard > diff_easy, f"어려운 텍스트 난이도({diff_hard:.1f})가 쉬운 텍스트({diff_easy:.1f})보다 낮으면 안 됩니다."
+        assert 0.0 <= diff_hard <= 100.0
+        assert 0.0 <= diff_easy <= 100.0
 
 
 # ---------------------------------------------------------------------------
@@ -98,13 +105,33 @@ class TestGetReadabilityLabel:
 
     @pytest.mark.parametrize("score,expected_label", [
         (80.0, "쉬움"),
-        (70.0, "쉬움"),
-        (69.9, "보통"),
-        (50.0, "보통"),
-        (49.9, "어려움"),
-        (30.0, "어려움"),
-        (29.9, "매우 어려움"),
+        (55.0, "쉬움"),
+        (54.9, "보통"),
+        (40.0, "보통"),
+        (39.9, "어려움"),
+        (25.0, "어려움"),
+        (24.9, "매우 어려움"),
         (0.0, "매우 어려움"),
     ])
     def test_labels_by_score(self, score, expected_label):
         assert get_readability_label(score) == expected_label
+
+
+# ---------------------------------------------------------------------------
+# get_technical_term_density 테스트
+# ---------------------------------------------------------------------------
+
+class TestGetTechnicalTermDensity:
+
+    def test_returns_correct_percentage(self):
+        """가건물(표준전문용어) 매칭 시 올바른 백분율을 반환해야 한다."""
+        text = "이것은 가건물 입니다."  # 3개 어절 중 1개 매칭 (가건물)
+        density = get_technical_term_density(text)
+        # (1 / 3) * 100 = 33.33%
+        assert 30.0 < density < 35.0
+
+    def test_no_terms_returns_zero(self):
+        """전문 용어가 없는 일반 텍스트는 0.0을 반환해야 한다."""
+        text = "하늘에 구름이 둥둥 떠 있습니다."
+        assert get_technical_term_density(text) == 0.0
+

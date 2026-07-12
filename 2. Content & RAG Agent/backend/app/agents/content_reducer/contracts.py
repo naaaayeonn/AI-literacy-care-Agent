@@ -45,7 +45,6 @@ class QuizDict(TypedDict):
 class ChunkDict(TypedDict):
     chunk_id: str
     original_text: str
-    restructured_text: NotRequired[str]   # LLM 재구성 결과
     difficulty: float                      # 0~100 (높을수록 어려움)
     terms: NotRequired[list[TermDict]]
     char_start: int                        # 원문에서의 시작 위치 (프론트 하이라이트용)
@@ -69,7 +68,7 @@ class ContentReducerResponse(TypedDict):
     readability_score: float       # 0~100, 높을수록 읽기 쉬움
     difficulty_score: float        # 0~100, 높을수록 어려움 (= 100 - readability)
     chunks: list[ChunkDict]
-    simplified_text: str           # 전체 재구성 텍스트 (프론트 전체보기용)
+    simplified_text: str           # 전체 원문 텍스트 (프론트 전체보기용)
     terms: list[TermDict]          # 세션 전체 용어 목록 (중복 제거)
 
 
@@ -80,7 +79,7 @@ class ContentReducerResponse(TypedDict):
 class QuizGenerationRequest(TypedDict):
     session_id: str
     chunk_id: str
-    context: str                   # 해당 chunk의 restructured_text
+    context: str                   # 해당 chunk의 original_text
     user_literacy_level: NotRequired[int]
 
 

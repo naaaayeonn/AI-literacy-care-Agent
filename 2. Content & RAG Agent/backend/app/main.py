@@ -201,8 +201,6 @@ def start_session(req: SessionStartRequestModel):
                 "chunk_id": c["chunk_id"],
                 "originalText": c["original_text"],
                 "original_text": c["original_text"],
-                "restructuredText": c.get("restructured_text", ""),
-                "restructured_text": c.get("restructured_text", ""),
                 "difficulty": c["difficulty"],
                 "charStart": c["char_start"],
                 "char_start": c["char_start"],

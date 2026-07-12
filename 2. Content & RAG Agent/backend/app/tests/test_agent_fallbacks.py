@@ -53,17 +53,7 @@ def test_chunker_fallback(error_state):
         assert result["trace"][-1]["chunking_fallback"] == "Chunker error"
 
 
-def test_restructure_fallback(error_state):
-    """LLM 재구성 모듈(restructure_text)이 예외를 발생시키더라도, restructured_text에 original_text가 그대로 매핑되어야 한다."""
-    with patch("backend.app.agents.content_reducer.agent.restructure_text", side_effect=Exception("LLM API restructure error")):
-        result = run_content_reducer(error_state)
-        assert len(result["chunks"]) >= 1
-        for chunk in result["chunks"]:
-            # LLM 실패 시 원문 텍스트를 그대로 반환
-            assert chunk["restructured_text"] == chunk["original_text"]
-        assert len(result["trace"]) >= 1
-        assert "restructure_fallback" in result["trace"][-1]
-        assert result["trace"][-1]["restructure_fallback"] == "LLM API restructure error"
+# test_restructure_fallback은 설계 변경(문장 재구성 제거)으로 삭제됨
 
 
 def test_rag_fallback(error_state):
