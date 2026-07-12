@@ -66,6 +66,9 @@ def to_intervention_command(state: ReadingSessionState) -> dict[str, Any]:
 
     if front_type == "highlight":
         payload["highlights"] = _highlights(state, intervention)
+    elif front_type == "quiz" and intervention.get("quiz_data"):
+        # O/X 퀴즈: 정답(answer)은 노출하지 않는다(서버 채점). statement만 프론트로.
+        payload["quiz"] = _public_quiz(intervention["quiz_data"])
 
     return {"type": front_type, "payload": payload}
 
@@ -174,6 +177,15 @@ def _badges(reward: dict) -> list[dict[str, Any]]:
             "acquiredAt": "",
         }
     ]
+
+
+def _public_quiz(quiz_data: dict) -> dict[str, Any]:
+    """개입 payload로 내보낼 퀴즈. 정답(answer)과 해설(explanation)은 제외한다.
+
+    answer는 물론, explanation도 정답을 사실상 노출("원문과 반대되는 서술입니다")하므로
+    출제 시점에는 내보내지 않는다. 해설은 채점(/quiz/submit) 응답에서 돌려준다(편지 §5-1/§5-4).
+    """
+    return {k: v for k, v in quiz_data.items() if k not in ("answer", "explanation")}
 
 
 def _highlights(state: ReadingSessionState, intervention: dict) -> list[dict[str, Any]]:

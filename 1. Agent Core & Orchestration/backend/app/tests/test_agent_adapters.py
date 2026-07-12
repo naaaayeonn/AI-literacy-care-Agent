@@ -51,6 +51,8 @@ def test_reward_and_profile_adapters_fill_optional_outputs():
     )
     state["focus_score"] = 70.0
     state["difficulty_score"] = 60.0
+    # 본문 70% 읽음 → 이해도 프록시 0.7 (실측 퀴즈 없을 때). literacy = 70*0.5+70*0.35+60*0.15 = 68.5
+    state["reading_events"] = [{"type": "scroll", "timestamp_ms": 1000, "position": 0.7}]
     calculate_literacy_score(state)
 
     run_reward_agent(state)

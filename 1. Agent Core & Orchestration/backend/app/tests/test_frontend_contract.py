@@ -13,6 +13,34 @@ from backend.app.api.frontend_contract import (
 from backend.app.demo.m1_scenario import build_m1_demo_state, run_m1_demo
 
 
+def test_intervention_command_exposes_quiz_without_answer():
+    # 개입이 quiz + quiz_data를 가지면 payload.quiz로 노출하되 정답(answer)은 제외한다.
+    state = build_m1_demo_state()
+    state["focus_score"] = 20.0
+    state["intervention"] = {
+        "type": "quiz",
+        "level": "hard",
+        "message": "잠깐! O/X로 확인해볼까요?",
+        "quiz_data": {
+            "quizId": "quiz_s1_c1",
+            "type": "ox",
+            "statement": "이 문단은 X-선 파장이 가시광선보다 길다고 설명한다.",
+            "answer": False,
+            "explanation": "본문은 '짧다'고 설명합니다.",
+            "sourceChunkId": "c1",
+        },
+    }
+
+    cmd = to_intervention_command(state)
+
+    assert cmd["type"] == "quiz"
+    quiz = cmd["payload"]["quiz"]
+    assert quiz["quizId"] == "quiz_s1_c1"
+    assert quiz["statement"]
+    assert "answer" not in quiz  # 정답은 프론트로 나가면 안 됨
+    assert "explanation" not in quiz  # 해설도 정답을 노출하므로 채점 응답에서만 준다
+
+
 def test_intervention_command_shape():
     state = run_m1_demo()  # stub 기준: focus 39 → medium/nudge
     cmd = to_intervention_command(state)
