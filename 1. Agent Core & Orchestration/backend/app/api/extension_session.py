@@ -28,6 +28,7 @@ from backend.app.api.frontend_contract import to_intervention_command, to_sessio
 from backend.app.api.reading_session import SESSION_STORE, _normalize_events
 from backend.app.orchestrator.graph import run_reading_session
 from backend.app.agents.qa_eval_client import run_qa_eval_agent
+from backend.app.orchestrator.quiz import apply_pick_quiz, prebuild_quizzes, submit_ox_quiz
 from backend.app.orchestrator.routing import decide_intervention
 from backend.app.orchestrator.state import ReadingSessionState, create_initial_state
 
@@ -57,6 +58,7 @@ def start_session(payload: dict) -> dict:
         profile=profile,
     )
     state = run_content_reducer(state)
+    state = prebuild_quizzes(state)  # 각 chunk O/X 프리젠 → state["quizzes"]
     SESSION_STORE[session_id] = state
 
     return {
@@ -82,6 +84,7 @@ def push_events(session_id: str, payload: dict) -> dict:
     state["reading_events"].extend(_normalize_events(events))
     state = run_cognitive_care(state)
     state = decide_intervention(state)
+    state = apply_pick_quiz(state)  # 트리거 A/B면 intervention에 O/X quiz_data 주입
     SESSION_STORE[session_id] = state
 
     command = to_intervention_command(state)
@@ -89,6 +92,27 @@ def push_events(session_id: str, payload: dict) -> dict:
     # 추가 키라 4번 render()는 무시한다. 누적 reading_events 기준 서버 진실값.
     command["debug"] = calculate_focus_breakdown(state.get("reading_events", []))
     return command
+
+
+@router.post("/{session_id}/quiz/submit")
+def submit_ox(session_id: str, payload: dict) -> dict:
+    """O/X 문항 채점 (편지 §5-4). 확장 overlay.quiz onAnswer가 호출한다.
+
+    응답 {correct, explanation, focusRecovered, xpEarned}. quiz_answers에 기록돼
+    세션 종료 시 score.py가 이해도를 실측한다.
+    """
+    state = _get_state(session_id)
+    quiz_id = payload.get("quizId") or payload.get("quiz_id")
+    selected = payload.get("selectedOption") or payload.get("selected_option")
+    if not quiz_id or selected is None:
+        raise HTTPException(status_code=422, detail="quizId and selectedOption are required")
+
+    result = submit_ox_quiz(state, str(quiz_id), str(selected))
+    if result is None:
+        raise HTTPException(status_code=404, detail="quiz not found")
+
+    SESSION_STORE[session_id] = state
+    return result
 
 
 @router.get("/{session_id}/result")

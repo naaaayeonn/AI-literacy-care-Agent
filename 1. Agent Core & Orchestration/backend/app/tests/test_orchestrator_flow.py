@@ -105,7 +105,8 @@ def test_optional_reward_and_profile_failures_do_not_block_result():
         ),
     )
 
-    assert result["literacy_score"] == 63.5
+    # 퀴즈·이벤트 없음 → 이해도는 상수 70이 아니라 완독률 프록시 0 → 0*0.5+60*0.35+50*0.15 = 28.5
+    assert result["literacy_score"] == 28.5
     assert "reward" not in result
     assert "updated_profile" not in result
     assert [entry["status"] for entry in result["trace"]] == [

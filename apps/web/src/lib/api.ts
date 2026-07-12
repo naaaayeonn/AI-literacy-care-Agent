@@ -70,13 +70,13 @@ export interface HighlightRange {
 
 export interface QuizData {
   quizId: string;
-  type?: 'ox';
-  statement?: string;
-  answer?: boolean;
-  question?: string;
-  options?: string[];
-  correctOption?: string | number;       // 실제 UI에서는 숨기고, 제출 후 서버 검증
+  question: string;
+  options: string[];
+  // 정답은 서버 채점(제출 응답의 correct)으로 판정한다. canonical 계약상 payload로
+  // 내려오지 않으므로 optional. (구버전 호환 위해 타입만 남겨둠)
+  correctOption?: string | number;
   explanation?: string;
+  statement?: string;          // 확장 overlay 호환(question과 동일 값)
 }
 
 export interface InterventionCommand {

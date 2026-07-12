@@ -125,6 +125,29 @@ def test_push_events_normalizes_and_filters_invalid_entries():
     assert events[0]["position"] == 1.0  # 0.0~1.0으로 clamp
 
 
+def test_push_events_passes_read_chunk_index_and_drops_invalid():
+    client.post(
+        "/api/reading-sessions/start",
+        json={"session_id": "rc1", "raw_text": "sample"},
+    )
+
+    client.post(
+        "/api/reading-sessions/rc1/events",
+        json={
+            "events": [
+                {"type": "scroll", "timestamp_ms": 1000, "position": 0.5, "readChunkIndex": 2},
+                {"type": "scroll", "timestamp_ms": 2000, "position": 0.6, "readChunkIndex": True},
+                {"type": "scroll", "timestamp_ms": 3000, "position": 0.7, "readChunkIndex": "x"},
+            ]
+        },
+    )
+
+    events = SESSION_STORE["rc1"]["reading_events"]
+    assert events[0]["readChunkIndex"] == 2
+    assert "readChunkIndex" not in events[1]  # bool 제외
+    assert "readChunkIndex" not in events[2]  # 비정수 제외
+
+
 def test_push_events_rejects_non_list_events():
     client.post(
         "/api/reading-sessions/start",

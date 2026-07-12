@@ -15,8 +15,7 @@ from ..orchestrator.state import create_initial_state
 from ..orchestrator.graph import run_reading_session
 from .frontend_contract import to_intervention_command, to_session_result
 from ..services.cognitive_care import calculate_focus_score, determine_intervention
-from ..services.quiz_service import select_quiz_for_state
-from ..agents.content_reducer.quiz_generator import generate_ox_quiz
+from ..services.quiz_service import select_quiz_for_state, generate_ox_quiz
 
 router = APIRouter(prefix="/api/session", tags=["Sessions"])
 
@@ -89,23 +88,16 @@ async def start_session(req: SessionStartRequest, request: Request, db: AsyncSes
         "chunks": [map_chunk(c) for c in updated_state.get("chunks", [])]
     }
     
-    # 퀴즈 미리 생성하여 Redis에 캐싱
+    # 퀴즈 미리 생성하여 Redis에 캐싱 — 순수 O/X(진술문+참·거짓). role-1 canonical과 정렬.
+    # 4지선다 질문에 O/X 버튼을 붙이던 방식(의미 불일치)을 폐기하고, 2번 summary로
+    # 참·거짓 판별 가능한 진술문을 만든다(generate_ox_quiz).
     quizzes = {}
     for c in updated_state.get("chunks", []):
-        context = c.get("summary") or c.get("original_text", "")
-        quiz_data = generate_ox_quiz(context, c.get("original_text", ""), c["chunk_id"])
-        
-        # 4지선다(QuizDict)를 O/X(Frontend 규격)로 매핑
-        # 프론트엔드는 type: "ox", statement, answer, explanation 을 기대함
-        q = {
-            "quizId": f"q_{c['chunk_id']}",
-            "type": "ox",
-            "statement": quiz_data.get("statement", "알 수 없는 질문"),
-            "answer": quiz_data.get("answer", True),
-            "explanation": quiz_data.get("explanation", "해설 없음"),
-            "chunkId": c["chunk_id"],
-            "sessionId": session_id
-        }
+        summary = c.get("summary") or c.get("restructured_text") or c.get("original_text", "")
+        paragraph = c.get("original_text") or c.get("restructured_text", "")
+        q = generate_ox_quiz(summary, paragraph, c["chunk_id"], session_id)
+        q["chunkId"] = c["chunk_id"]      # 3번 캐시 키 호환
+        q["sessionId"] = session_id
         quizzes[c["chunk_id"]] = q
         
     redis_client = await get_redis()
@@ -162,74 +154,27 @@ async def process_events(session_id: str, req: EventsRequestModel):
             "message": msg
         }
         
-        # v2 O/X 퀴즈 트리거 로직 (pick_quiz)
-        asked_raw = await redis_client.get(f"session:{session_id}:asked_quizzes")
-        asked = json.loads(asked_raw) if asked_raw else []
-        last_ms_raw = await redis_client.get(f"session:{session_id}:last_quiz_at_ms")
-        last_ms = float(last_ms_raw) if last_ms_raw else -float('inf')
-        
-        now_ms = reading_events[-1].get("timestamp_ms", 0) if reading_events else 0
-        position = max((e.get("position", 0.0) for e in reading_events if e.get("position") is not None), default=0.0)
-        user_requested_quiz = any(e.get("type") == "request_quiz" for e in reading_events)
-        
-        quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
-        chunks_raw = await redis_client.get(f"session:{session_id}:chunks")
-        
-        if quizzes_raw and chunks_raw:
-            chunks = json.loads(chunks_raw)
-            quizzes_dict = json.loads(quizzes_raw)
-            
-            quiz = None
-            if user_requested_quiz or (len(asked) < 3 and (now_ms - last_ms >= 25000)):
-                trigger = None
-                if user_requested_quiz:
-                    trigger = "user_request"
-                elif focus_score < 30.0:
-                    trigger = "focus_drop"
-                elif position >= 0.9 and len(asked) < 1:
-                    trigger = "progress_floor"
-                
-                if trigger:
-                    if trigger == "focus_drop" or trigger == "user_request":
-                        idx = min(int(position * len(chunks)), len(chunks) - 1)
-                    else:
-                        idx = next((i for i, c in enumerate(chunks) if f"quiz_{session_id}_{c['chunk_id']}" not in asked), 0)
-                    
-                    chunk_id = chunks[idx]["chunk_id"]
-                    candidate = quizzes_dict.get(chunk_id)
-                    if candidate and candidate["quizId"] not in asked:
-                        quiz = dict(candidate)
-                        quiz["trigger"] = trigger
-            
-            if quiz:
-                state["intervention"]["quiz_data"] = quiz
-                state["intervention"]["level"] = "hard"
-                state["intervention"]["type"] = "quiz"
-                state["intervention"]["message"] = "집중이 필요해요! 간단한 퀴즈로 내용을 확인해봐요! 📝" if quiz["trigger"] == "focus_drop" else "마무리 확인! 내용 이해도를 점검해봐요! 📝"
-                
-                asked.append(quiz["quizId"])
-                await redis_client.set(f"session:{session_id}:asked_quizzes", json.dumps(asked))
-                await redis_client.set(f"session:{session_id}:last_quiz_at_ms", str(now_ms))
-            elif internal_type == "quiz":
-                # 퀴즈를 내야 하지만 트리거/쿨다운에 걸린 경우 medium으로 강등
-                state["intervention"]["level"] = "medium"
-                state["intervention"]["type"] = "nudge"
-                state["intervention"]["message"] = "잠깐! 조금 쉬었다가 다시 읽어보는 건 어때요? ☕"
-        
-        # nudge 개입일 경우, 현재 문단의 요약본을 페이로드에 포함시킴
-        if state["intervention"]["type"] == "nudge":
+        # 퀴즈(hard 개입)인 경우 캐시된 퀴즈 중 하나를 선택
+        if internal_type == "quiz":
+            quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
             chunks_raw = await redis_client.get(f"session:{session_id}:chunks")
-            if chunks_raw:
-                chunks = json.loads(chunks_raw)
-                if chunks:
-                    latest_position = state["reading_events"][-1].get("position", 0.0) if state["reading_events"] else 0.0
-                    if latest_position is None:
-                        latest_position = 0.0
-                    chunk_index = round(latest_position * (len(chunks) - 1))
-                    chunk_index = max(0, min(chunk_index, len(chunks) - 1))
-                    target_chunk = chunks[chunk_index]
-                    summary_text = target_chunk.get("restructured_text") or target_chunk.get("original_text", "")
-                    state["intervention"]["summary_text"] = summary_text
+            asked_raw = await redis_client.get(f"session:{session_id}:asked_quizzes")
+            
+            if quizzes_raw and chunks_raw:
+                state["quizzes"] = json.loads(quizzes_raw)
+                state["chunks"] = json.loads(chunks_raw)
+                state["asked_quiz_ids"] = json.loads(asked_raw) if asked_raw else []
+                
+                selected_quiz = select_quiz_for_state(state)
+                if selected_quiz:
+                    state["intervention"]["quiz_data"] = selected_quiz
+                    # 출제 기록 업데이트
+                    state["asked_quiz_ids"].append(selected_quiz["quizId"])
+                    await redis_client.set(f"session:{session_id}:asked_quizzes", json.dumps(state["asked_quiz_ids"]))
+                else:
+                    # 적절한 퀴즈가 없으면 medium(nudge) 수준으로 강등
+                    state["intervention"]["level"] = "medium"
+                    state["intervention"]["type"] = "nudge"
         
         return to_intervention_command(state)
     finally:
@@ -237,47 +182,43 @@ async def process_events(session_id: str, req: EventsRequestModel):
 
 @router.post("/{session_id}/quiz/submit", response_model=QuizSubmitResponse)
 async def submit_quiz(session_id: str, req: QuizSubmitRequest):
+    """O/X 답안 서버 채점 + 이해도 누적. role-1 canonical과 정렬.
+
+    정답키(answer)는 서버 캐시에만 있고 프론트로 나가지 않으므로(위조 불가),
+    selectedOption("O"/"X")을 캐시된 정답과 비교해 채점한다. 채점 결과는
+    quiz_result(correct/total)로 누적해 result 엔드포인트의 이해도 산출에 쓴다.
+    """
     redis_client = await get_redis()
-    try:
-        quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
-        if not quizzes_raw:
-            raise HTTPException(status_code=404, detail="No quizzes found for session")
-            
-        quizzes = json.loads(quizzes_raw)
-        
-        # find the quiz
-        target_quiz = None
-        for q in quizzes.values():
-            if q["quizId"] == req.quizId:
-                target_quiz = q
-                break
-                
-        if not target_quiz:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-            
-        # check answer: "O" means True, "X" means False
-        is_correct = (req.selectedOption == "O") == target_quiz["answer"]
-        focus_recovered = 15.0 if is_correct else 0.0
-        xp_earned = 10 if is_correct else 0
-        
-        # 이해도 실측 기록 저장
-        answers_key = f"session:{session_id}:quiz_answers"
-        answer_record = {
-            "quizId": req.quizId,
-            "sourceChunkId": target_quiz.get("sourceChunkId"),
-            "correct": is_correct,
-            "trigger": target_quiz.get("trigger")
-        }
-        await redis_client.rpush(answers_key, json.dumps(answer_record))
-        
-        return QuizSubmitResponse(
-            correct=is_correct,
-            explanation=target_quiz["explanation"],
-            focusRecovered=focus_recovered,
-            xpEarned=xp_earned
-        )
-    finally:
-        pass
+    quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
+    if not quizzes_raw:
+        raise HTTPException(status_code=404, detail="No quizzes found for session")
+
+    quizzes = json.loads(quizzes_raw)
+    target_quiz = next((q for q in quizzes.values() if q["quizId"] == req.quizId), None)
+    if not target_quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # 서버 채점: "O"=True, "X"=False
+    is_correct = (req.selectedOption == "O") == bool(target_quiz["answer"])
+    focus_recovered = 15.0 if is_correct else 0.0
+    xp_earned = 10 if is_correct else 0
+
+    # 이해도 산출용 누적(result 엔드포인트가 quiz_result를 읽는다)
+    quiz_key = f"session:{session_id}:quiz_result"
+    existing_raw = await redis_client.get(quiz_key)
+    existing = json.loads(existing_raw) if existing_raw else {"correct_count": 0, "total_count": 0, "answers": []}
+    existing["total_count"] += 1
+    if is_correct:
+        existing["correct_count"] += 1
+    existing["answers"].append({"quiz_id": req.quizId, "selected": req.selectedOption, "correct": is_correct})
+    await redis_client.set(quiz_key, json.dumps(existing), ex=86400)
+
+    return QuizSubmitResponse(
+        correct=is_correct,
+        explanation=target_quiz.get("explanation", ""),
+        focusRecovered=focus_recovered,
+        xpEarned=xp_earned,
+    )
 
 
 @router.post("/{session_id}/finish", response_model=SessionFinishResponse)
@@ -427,61 +368,6 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
         return to_session_result(final_state)
     finally:
         pass
-
-@router.post("/{session_id}/quiz/submit", response_model=QuizSubmitResponse)
-async def submit_quiz(
-    session_id: str,
-    req: QuizSubmitRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """퀴즈 답안 제출 및 채점 — Q1/Q3: 실제 정답키 기준 채점 후 Redis 누적 저장."""
-    # 세션 존재 확인
-    result = await db.execute(select(ReadingSession).filter(ReadingSession.id == session_id))
-    session = result.scalars().first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    # Q3: generate_quiz correct_option 기준으로 채점
-    # req.quizCorrectOption (1-indexed) 이 없으면 일반 텍스트 비교 폴백
-    is_correct = False
-    if hasattr(req, 'correctOption') and req.correctOption is not None:
-        # 프론트가 correct_option(1~4 인덱스)을 같이 보낸 경우
-        is_correct = (req.selectedOption == req.correctOption)
-    elif hasattr(req, 'selectedIndex') and hasattr(req, 'correctIndex'):
-        is_correct = (req.selectedIndex == req.correctIndex)
-    else:
-        # 폴백: 선택지 텍스트 직접 비교 (프론트 계약 구버전 호환)
-        is_correct = str(req.selectedOption).strip() == str(getattr(req, 'correctAnswer', '')).strip()
-
-    explanation = "정답입니다! 잘 이해하고 있어요." if is_correct else "아쉽지만 틀렸어요. 다시 한번 읽어보세요."
-
-    # Q1: 채점 결과를 Redis에 누적 저장 (session:{id}:quiz_result)
-    redis_client = await get_redis()
-    try:
-        quiz_key = f"session:{session_id}:quiz_result"
-        existing_raw = await redis_client.get(quiz_key)
-        if existing_raw:
-            existing = json.loads(existing_raw)
-        else:
-            existing = {"correct_count": 0, "total_count": 0, "answers": []}
-
-        existing["total_count"] += 1
-        if is_correct:
-            existing["correct_count"] += 1
-        existing["answers"].append({
-            "quiz_id":  req.quizId,
-            "selected": req.selectedOption,
-            "correct":  is_correct
-        })
-        await redis_client.set(quiz_key, json.dumps(existing), ex=86400)  # 24h TTL
-    finally:
-        await redis_client.aclose()
-
-    return QuizSubmitResponse(
-        correct=is_correct,
-        explanation=explanation,
-        quiz_id=req.quizId,
-    )
 
 @router.post("/{session_id}/explain", response_model=TermExplainResponse)
 async def explain_term(
