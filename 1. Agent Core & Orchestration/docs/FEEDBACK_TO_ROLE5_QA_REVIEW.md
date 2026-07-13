@@ -13,6 +13,23 @@
 
 ---
 
+## 🟢 [업데이트 2026-07-13 · 1번] C3·C2 배선 완료 — 이제 웹·확장 두 경로 모두 QA가 실측으로 돈다
+
+> 네가 고친 relevance·chunk 폴백·golden이 **드디어 실행 경로에서 산다.** 아래 두 개, 내가 반영했어.
+
+- **✅ C3 해결 (확장 경로)** — 5번 canonical을 `1. Agent Core & Orchestration/backend/evaluation/`에 재-vendor 완료(커밋 `16fd6e6`). `run_evaluation_from_state`가 `state["quizzes"]`에서 질문을 뽑는 **네 최신 코드**로 교체됨. 파일 상단에 출처/일시 주석 + 재-vendor 규칙 명시.
+- **✅ C2 해결 (웹 경로)** — 커밋 `7aec3ae`로 3파트 배선:
+  1. `3. Cognitive Care Backend/backend/evaluation/`에 **모듈 재-vendor** (5번=1번=3번 **byte-identical**, 헤더만 상이) → 더 이상 `ImportError`로 스킵 안 됨.
+  2. `/result`가 `session:{id}:chunks`(원문/요약)·`quizzes`(진술문)를 **평가 직전 state로 복원**(M1 동시 해결) — 안 그러면 `raw_text=""`라 QA가 0으로 나옴.
+  3. `to_session_result`에 **`qaEvaluation` 노출** — 계산돼도 프론트가 못 받던 문제 해소(부재 시 `{}`).
+- **검증**: 복원된 웹 state로 `run_evaluation_from_state` → **faithfulness 0.96 · relevance 0.69 · passed=True**. `1번 vendored == 3번 vendored` diff 0.
+
+**단일 소스 규칙(중요)**: evaluation의 canonical은 **5번**이야. 앞으로 `evaluation_pipeline.py`/`metrics.py`를 고치면 **1번·3번 vendored 사본도 재-vendor**해야 실제로 반영돼(각 사본 상단 주석 참조). 원하면 5번을 공용 패키지로 승격하는 것도 논의하자.
+
+> 아래 원래 리뷰의 C3·C2 항목은 **위 배선으로 종결**. 나머지 M1~M4·Minor는 여전히 유효(특히 M2 실 state 회귀, M3 dead code, M4 divergent 공식).
+
+---
+
 ## ✅ 이번에 확인된 개선 (👍)
 - **C1 해결** — `run_evaluation_from_state`가 `state["quizzes"]`에서 질문을 뽑아 relevance에 사용(`_extract_quiz_questions`). 더 이상 존재하지 않는 필드를 읽지 않음.
 - **입력 폴백** — `raw_text`/`simplified_text`가 비면 `chunks`의 `original_text`/`summary`로 대체(`_extract_chunk_text`).
@@ -21,9 +38,11 @@
 
 ---
 
-## 🔴 C3. (최우선) 고친 코드가 실행 경로에 반영 안 됨 — vendored 사본이 옛 버전
+## ✅ C3. (해결됨 · `16fd6e6`) 고친 코드가 실행 경로에 반영 안 됨 — vendored 사본이 옛 버전
 
-**증거:** 실제로 실행되는 `1. Agent Core & Orchestration/backend/evaluation/evaluation_pipeline.py`의 `run_evaluation_from_state`는 **아직 옛날 코드**:
+> **종결**: 1번 vendored를 5번 최신으로 재-vendor 완료. 아래는 당시 진단 기록.
+
+**증거(당시):** 실제로 실행되는 `1. Agent Core & Orchestration/backend/evaluation/evaluation_pipeline.py`의 `run_evaluation_from_state`는 **아직 옛날 코드**:
 ```python
 sample = {
     "raw_text": state.get("raw_text", ""),
@@ -38,9 +57,10 @@ sample = {
 **고치기 (핵심):** evaluation을 **단일 소스(5번을 canonical)** 로 정하고, 1·3번은 **재-vendor 규칙**을 명시(파일 상단에 출처/일시 주석 + 갱신 절차). 또는 공용 패키지로 승격.
 > ※ 1번 쪽 vendored 사본은 **내(1번)가 재-vendor해서 바로 반영**해줄 수 있어. 원하면 말해줘 — 그럼 최소한 확장 경로는 즉시 살아나.
 
-## 🔴 C2. 웹(3번) 경로엔 evaluation 모듈이 아예 없음 — 통째 스킵
-- `3. Cognitive Care Backend/backend/`에 **`evaluation/` 디렉터리가 여전히 없음.** → `/result`의 `from backend.evaluation... import` 가 `ImportError` → try/except로 **조용히 스킵** → 웹 세션 결과에 `qaEvaluation` 항상 부재.
-- 4번이 실제로 쓰는 **웹 경로에선 QA가 안 돈다.** (C3와 한 세트 — 단일 소스화하면서 3번도 접근 가능하게)
+## ✅ C2. (해결됨 · `7aec3ae`) 웹(3번) 경로엔 evaluation 모듈이 아예 없음 — 통째 스킵
+> **종결**: 3번에 evaluation 모듈 재-vendor + `/result` 입력 복원 + `qaEvaluation` 노출(위 업데이트 배너 참조). 아래는 당시 진단 기록.
+- (당시) `3. Cognitive Care Backend/backend/`에 **`evaluation/` 디렉터리가 없음.** → `/result`의 `from backend.evaluation... import` 가 `ImportError` → try/except로 **조용히 스킵** → 웹 세션 결과에 `qaEvaluation` 항상 부재.
+- (당시) 4번이 실제로 쓰는 **웹 경로에선 QA가 안 돌았다.** (C3와 한 세트 — 단일 소스화하면서 3번도 접근 가능하게)
 
 ---
 
@@ -72,8 +92,8 @@ sample = {
 ## ✅ 지금 기준 남은 할 일 (우선순위)
 
 **A. 급함 — "고친 게 실제로 돌게"**
-- [ ] **C3**: evaluation 단일 소스화 + 1·3번 재-vendor 규칙(파일 상단 출처 주석). *(1번 vendored는 내가 반영 가능)*
-- [ ] **C2/M1**: 3번에 evaluation 모듈 제공(공용화) + `/result`에서 Redis chunks를 state로 복원.
+- [x] **C3**: evaluation 단일 소스화 + 1·3번 재-vendor 규칙(파일 상단 출처 주석). → **완료 `16fd6e6`**
+- [x] **C2/M1**: 3번에 evaluation 모듈 제공 + `/result`에서 Redis chunks/quizzes를 state로 복원 + `qaEvaluation` 노출. → **완료 `7aec3ae`**
 
 **B. 현재 산출물 평가 (제품이 O/X·요약으로 바뀜)**
 - [ ] **O/X 퀴즈 타당성**: `quiz.statement`가 `sourceChunkId` 문단으로 참·거짓 판별 가능한지 + answer True/False 분포. → **3번 O/X 회귀로도 재사용**.
