@@ -65,46 +65,35 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-// 백엔드 API 요청 프록시 (CORS / CSP 차단 우회용 + 자동 재시도 + 포트 기반 영구 채널 유지)
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name === "ALC_PORT") {
-    port.onMessage.addListener(async (message) => {
-      if (message.type === "ALC_API_REQUEST") {
-        const { requestId, url, options } = message;
-        
-        // 최대 3회 재시도 (Render 콜드 스타트 및 일시적 오류 대응)
-        const executeFetchWithRetry = async (retriesLeft, delay) => {
-          try {
-            const res = await fetch(url, options);
-            const ok = res.ok;
-            const status = res.status;
-            const statusText = res.statusText;
-            let data = null;
-            try {
-              data = await res.json();
-            } catch (_) {}
-            
-            // 포트가 아직 열려있는지 안전 확인 후 응답 전송
-            try {
-              port.postMessage({ success: true, requestId, ok, status, statusText, data });
-            } catch (e) {
-              console.warn("[ALC Background] Failed to send response back through port:", e);
-            }
-          } catch (err) {
-            if (retriesLeft > 0) {
-              console.warn(`[ALC Background] Fetch failed, retrying in ${delay}ms... (${retriesLeft} retries left):`, err);
-              setTimeout(() => executeFetchWithRetry(retriesLeft - 1, delay * 2), delay);
-            } else {
-              console.error("[ALC Background] Promise fetch failed after all retries:", err);
-              try {
-                port.postMessage({ success: false, requestId, error: err.toString() });
-              } catch (e) {}
-            }
-          }
-        };
-
-        executeFetchWithRetry(3, 1000);
+// 백엔드 API 요청 프록시 (CORS / CSP 차단 우회용 + 자동 재시도 + 메시지 채널 Keep-Alive)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "ALC_API_REQUEST") {
+    const { url, options } = message;
+    
+    // 최대 3회 재시도 (Render 콜드 스타트 및 일시적 오류 대응)
+    const executeFetchWithRetry = async (retriesLeft, delay) => {
+      try {
+        const res = await fetch(url, options);
+        const ok = res.ok;
+        const status = res.status;
+        const statusText = res.statusText;
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (_) {}
+        sendResponse({ success: true, ok, status, statusText, data });
+      } catch (err) {
+        if (retriesLeft > 0) {
+          console.warn(`[ALC Background] Fetch failed, retrying in ${delay}ms... (${retriesLeft} retries left):`, err);
+          setTimeout(() => executeFetchWithRetry(retriesLeft - 1, delay * 2), delay);
+        } else {
+          console.error("[ALC Background] Promise fetch failed after all retries:", err);
+          sendResponse({ success: false, error: err.toString() });
+        }
       }
-    });
+    };
+
+    executeFetchWithRetry(3, 1000);
+    return true; // 비동기 응답 채널 유지 (최대 5분 Keep-Alive)
   }
 });

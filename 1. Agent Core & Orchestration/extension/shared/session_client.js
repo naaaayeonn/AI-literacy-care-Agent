@@ -1,79 +1,26 @@
-let alcPort = null;
-const alcPendingRequests = new Map();
-
-function getAlcPort() {
-  if (alcPort) return alcPort;
-  
-  if (typeof chrome === "undefined" || !chrome.runtime || !chrome.runtime.connect) {
-    return null;
-  }
-  
-  try {
-    alcPort = chrome.runtime.connect({ name: "ALC_PORT" });
-    
-    alcPort.onMessage.addListener((response) => {
-      const { requestId, success, ok, status, statusText, data, error } = response;
-      const callbacks = alcPendingRequests.get(requestId);
-      if (callbacks) {
-        alcPendingRequests.delete(requestId);
-        if (!success) {
-          callbacks.reject(new Error(error || "Unknown API error"));
-        } else {
-          callbacks.resolve({
-            ok,
-            status,
-            statusText,
-            json: async () => data,
-          });
-        }
-      }
-    });
-
-    alcPort.onDisconnect.addListener(() => {
-      alcPort = null;
-      // 대기 중인 모든 요청 거절 처리
-      for (const [id, callbacks] of alcPendingRequests.entries()) {
-        callbacks.reject(new Error("ALC Port disconnected"));
-      }
-      alcPendingRequests.clear();
-    });
-  } catch (e) {
-    console.error("[ALC] Failed to establish port connection:", e);
-    alcPort = null;
-  }
-  
-  return alcPort;
-}
-
-// Service Worker를 경유하는 fetch 프록시 함수 (CORS 및 CSP 블록 우회, 포트 기반 장시간 연동 보장 + 일시적 끊김 자가 치유)
+// Service Worker를 경유하는 fetch 프록시 함수 (CORS 및 CSP 블록 우회)
 window.ALC_Fetch = async function (url, options = {}) {
-  const executeFetch = () => {
-    const port = getAlcPort();
-    if (!port) {
-      return fetch(url, options);
-    }
-    return new Promise((resolve, reject) => {
-      const requestId = "req_" + Math.random().toString(36).substr(2, 9);
-      alcPendingRequests.set(requestId, { resolve, reject });
-      try {
-        port.postMessage({ type: "ALC_API_REQUEST", requestId, url, options });
-      } catch (err) {
-        alcPendingRequests.delete(requestId);
-        reject(err);
-      }
-    });
-  };
-
-  try {
-    return await executeFetch();
-  } catch (err) {
-    if (err.message === "ALC Port disconnected") {
-      console.warn("[ALC] Port disconnected, retrying fetch connection...");
-      alcPort = null; // 포트 인스턴스 초기화 후 강제 재연결
-      return await executeFetch();
-    }
-    throw err;
+  if (typeof chrome === "undefined" || !chrome.runtime || !chrome.runtime.sendMessage) {
+    return fetch(url, options);
   }
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: "ALC_API_REQUEST", url, options }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      if (!response || !response.success) {
+        reject(new Error(response ? response.error : "Unknown API error"));
+        return;
+      }
+      resolve({
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        json: async () => response.data,
+      });
+    });
+  });
 };
 
 window.ALC_Session = (() => {
