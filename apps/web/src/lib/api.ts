@@ -168,7 +168,7 @@ export interface GrowthReportResponse {
 // API fetch stub (TODO 7/6 실구현)
 // ──────────────────────────────────────────────
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8080';
 
 export const api = {
   /** 세션 시작 — 기사 로드 및 REST 엔드포인트 수신 */
