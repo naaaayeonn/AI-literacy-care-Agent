@@ -37,7 +37,10 @@
 
   function isReadable() {
     const text = document.body ? document.body.innerText : "";
-    return text.length >= CFG.MIN_READABLE_CHARS;
+    const len = text.length;
+    const ok = len >= CFG.MIN_READABLE_CHARS;
+    console.log(`[ALC] 본문 글자 수 판정: ${len}자 / 최소 기준: ${CFG.MIN_READABLE_CHARS}자 -> 결과: ${ok ? "통과" : "거절"}`);
+    return ok;
   }
 
   // 웹 진행률: 본문 문단 기준(§4). 문단 노드를 못 잡은 경우(전체 body 폴백)만
