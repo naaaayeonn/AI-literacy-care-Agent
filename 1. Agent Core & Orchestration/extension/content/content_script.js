@@ -82,6 +82,18 @@
   async function arm() {
     if (session || !isReadable()) return;
     const userId = await getUserId();
+
+    // storage에서 백엔드 URL 읽어서 CFG에 동적 반영 (사용자 지정 Render 서버 대응)
+    try {
+      const { apiBaseUrl } = await chrome.storage.local.get("apiBaseUrl");
+      if (apiBaseUrl) {
+        CFG.API_BASE = apiBaseUrl;
+        console.log("[ALC] 동적 백엔드 URL 적용:", CFG.API_BASE);
+      }
+    } catch (e) {
+      console.warn("[ALC] 동적 백엔드 URL 로드 실패:", e);
+    }
+
     armTimer = setTimeout(() => {
       session = window.ALC_Session.create({
         cfg: CFG,
@@ -166,7 +178,7 @@
   });
 
   async function init() {
-    // 웹사이트인 경우 로그인 상태 항상 동기화
+    // 웹사이트인 경우 로그인 상태 및 백엔드 서버 주소 항상 동기화
     if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1")) {
       try {
         const localUid = localStorage.getItem("local_session_uid");
@@ -174,8 +186,14 @@
           await chrome.storage.local.set({ userId: localUid });
           console.log("[ALC] 웹사이트 사용자 ID 연동 성공:", localUid);
         }
+        
+        const localBackendUrl = localStorage.getItem("alc_backend_url");
+        if (localBackendUrl) {
+          await chrome.storage.local.set({ apiBaseUrl: localBackendUrl });
+          console.log("[ALC] 웹사이트 백엔드 URL 연동 성공:", localBackendUrl);
+        }
       } catch (e) {
-        console.warn("[ALC] 웹사이트 사용자 ID 연동 실패:", e);
+        console.warn("[ALC] 웹사이트 상태 연동 실패:", e);
       }
     }
 

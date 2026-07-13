@@ -169,6 +169,13 @@ export interface GrowthReportResponse {
 // ──────────────────────────────────────────────
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    window.localStorage.setItem('alc_backend_url', BASE_URL);
+  } catch (e) {
+    console.warn('[ALC] Failed to save alc_backend_url to localStorage:', e);
+  }
+}
 
 export const api = {
   /** 세션 시작 — 기사 로드 및 REST 엔드포인트 수신 */
