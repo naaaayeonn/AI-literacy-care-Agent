@@ -63,17 +63,16 @@ _redis_offline = False
 
 async def get_redis():
     """단일 공유 클라이언트를 반환한다(실제 Redis 또는 InMemory 폴백 싱글턴).
-
-    이전 구현은 오프라인일 때 매 호출마다 새 InMemoryRedisClient()를 만들어
-    요청 간 데이터(퀴즈 채점 누적 등)가 공유되지 않았다. 반드시 싱글턴을 반환한다.
+    자가 치유(Self-healing) 기능이 있어, 일시적인 연결 장애로 인메모리 폴백으로
+    전환되었더라도 다음 호출 시 실제 Redis 서버와의 재연결을 시도한다.
     """
     global _redis_client, _redis_offline
 
-    if _redis_client is not None:
+    if _redis_client is not None and not _redis_offline:
         return _redis_client
 
     try:
-        # 1. 실제 Redis 클라이언트 연결 시도 (Render 무료/저가형 커넥션 한도 초과 방지)
+        # 실제 Redis 클라이언트 연결 시도
         raw_client = redis.from_url(
             REDIS_URL, 
             decode_responses=True, 
@@ -81,12 +80,20 @@ async def get_redis():
             health_check_interval=10
         )
         await raw_client.ping()  # ping 테스트
+        
+        # 연결 성공 시 실제 Redis로 전환
         _redis_client = raw_client
-        print("[Redis] Local Redis server connection successful.")
+        _redis_offline = False
+        print("[Redis] Redis server connection successful.")
     except Exception as e:
-        # 2. 연결 실패 시 InMemory 폴백 싱글턴으로 전환
-        print(f"[Redis] Local Redis server is offline ({e}). Using InMemory Cache Fallback.")
+        # 연결 실패 시 이미 생성된 인메모리 싱글턴이 있으면 그것을 반환
+        if _redis_client is not None:
+            return _redis_client
+            
+        print(f"[Redis] Redis connection failed ({e}). Using InMemory Fallback.")
         _redis_offline = True
         _redis_client = InMemoryRedisClient()
+
+    return _redis_client
 
     return _redis_client
