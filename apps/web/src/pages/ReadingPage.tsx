@@ -245,6 +245,19 @@ export default function ReadingPage() {
         const loggedInUser = useAuthStore.getState().user;
         const activeUserId = loggedInUser?.id || cfg.userId || 'u_anon_guest';
 
+        // 7/15: 업로드 세션이면 백엔드 응답(재청킹)을 기다리는 동안 데모(sampleArticle)가
+        // 잠깐이라도 보이지 않도록, 저장된 원문을 즉시 렌더한다. (응답이 오면 아래에서 정교화)
+        if (isUpload && cfg.uploadedContent && cfg.uploadedContent.length) {
+          useReadingStore.getState().setArticle({
+            id: 'uploaded',
+            title: cfg.uploadedTitle ?? '내가 올린 문서',
+            category: '내 업로드',
+            author: '익명 업로드',
+            publishedAt: '방금',
+            content: cfg.uploadedContent,
+          });
+        }
+
         const sessionData = await api.startSession({
           articleId: isUpload ? 'uploaded' : 'default-article',
           userId: activeUserId,
@@ -264,15 +277,19 @@ export default function ReadingPage() {
           const chunks: any[] = (sessionData.article as any)?.chunks ?? [];
           const originals = chunks.map((c: any) => c.original_text || c.originalText).filter(Boolean);
           const easies = chunks.map((c: any) => c.restructured_text || c.restructuredText || c.original_text || c.originalText);
-          if (originals.length) {
+          // 7/15: 백엔드가 chunks를 못 주거나(콜드스타트·실패·mock 폴백) 응답이 비어도
+          // 데모(sampleArticle)로 떨어지지 않도록, localStorage에 영속된 업로드 원문으로 폴백한다.
+          // "새로고침하면 업로드가 데모로 돌아가던" 문제의 최종 방어선.
+          const content = originals.length ? originals : (cfg.uploadedContent ?? []);
+          if (content.length) {
             useReadingStore.getState().setArticle({
               id: sessionData.article.id ?? 'uploaded',
               title: cfg.uploadedTitle ?? '내가 올린 문서',
               category: '내 업로드',
               author: '익명 업로드',
               publishedAt: '방금',
-              content: originals,
-              contentEasy: easies,
+              content,
+              contentEasy: originals.length ? easies : content,
             });
           }
         }
