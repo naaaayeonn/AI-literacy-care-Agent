@@ -36,39 +36,8 @@ from backend.app.agents.content_reducer.contracts import ChunkDict, TermDict
 _RAG_MODE = os.getenv("RAG_MODE", "memory")
 _FAITHFULNESS_THRESHOLD = float(os.getenv("FAITHFULNESS_THRESHOLD", "0.80"))
 
-# term_dictionary.json 경로: 프로젝트 루트/data/term_dictionary.json
-_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-_TERM_DICT_PATH = _PROJECT_ROOT / "data" / "term_dictionary.json"
-
-
-# ---------------------------------------------------------------------------
-# 용어집 로더
-# ---------------------------------------------------------------------------
-
-def _load_term_dictionary() -> list[dict]:
-    """JSON 파일에서 용어집 데이터를 로드한다."""
-    if not _TERM_DICT_PATH.exists():
-        # 상위 디렉토리에서 재탐색 (경로 유연성)
-        for candidate in Path(__file__).parents:
-            alt = candidate / "data" / "term_dictionary.json"
-            if alt.exists():
-                path = alt
-                break
-        else:
-            return []
-    else:
-        path = _TERM_DICT_PATH
-
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get("terms", [])
-    except Exception as e:
-        print(f"[rag_engine] 용어집 로드 실패: {e}")
-        return []
-
-
-_TERM_DICT: list[dict] = _load_term_dictionary()
+# 로컬 용어집 비활성화 — 단어 조회는 국립국어원 사전 API가 1순위
+_TERM_DICT: list[dict] = []
 _TERM_VECS: list[list[float]] | None = None  # 용어집 임베딩 캐시 (최초 1회만 계산)
 
 
@@ -740,24 +709,7 @@ def lookup_term(word: str, context: str | None = None) -> TermDict:
             _meta={"tried": tried, "errors": errors}
         )
 
-    # 1. 완벽 매칭 (용어 또는 별칭)
-    tried.append("local")
-    for w in word_candidates:
-        w_lower = w.lower()
-        for entry in _TERM_DICT:
-            term_val = entry.get("term", "")
-            aliases = [a.lower() for a in entry.get("aliases", [])]
-            if term_val.lower() == w_lower or w_lower in aliases:
-                return TermDict(
-                    term=term_val,
-                    definition=entry.get("definition", ""),
-                    source=entry.get("source", "로컬 사전"),
-                    faithfulness_score=1.0,
-                    chunk_id="",
-                    _meta={"tried": tried, "errors": errors}
-                )
-
-    # 2. 표준국어대사전 오픈 API 조회 시도
+    # 1. 표준국어대사전 오픈 API 조회 시도
     api_key_stdict = os.getenv("STDICT_API_KEY", "") or os.getenv("STANDARD_DICTIONARY_API_KEY", "")
     if api_key_stdict:
         tried.append("stdict")
