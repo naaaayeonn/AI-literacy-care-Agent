@@ -20,6 +20,7 @@ import { api } from '../lib/api';
  */
 export default function ReadingPage() {
   const progress = useReadingStore((s) => s.progress);
+  const sessionId = useReadingStore((s) => s.sessionId);
   const startSessionStore = useReadingStore((s) => s.startSession);
   const setProgress = useReadingStore((s) => s.setProgress);
   const setHighlights = useReadingStore((s) => s.setHighlights);
@@ -47,6 +48,54 @@ export default function ReadingPage() {
   useEffect(() => {
     document.title = 'AI 리터러시 케어 — 읽기';
   }, []);
+
+  // 완독 시 세션 최종 저장 및 결과 가져오기
+  useEffect(() => {
+    if (progress >= 100 && sessionId && !useScoreStore.getState().isFinalized) {
+      console.log('[ReadingPage] Session finished! Finalizing on backend...');
+      const currentScores = useScoreStore.getState();
+      
+      const finalize = async () => {
+        try {
+          await api.finishSession(sessionId, {
+            literacy_score: currentScores.literacyScore,
+            comprehension_score: currentScores.comprehensionScore,
+            engagement_score: currentScores.engagementScore,
+          });
+          
+          const scoreResult = await api.getSessionResult(sessionId);
+          
+          useScoreStore.setState({
+            isFinalized: true,
+            literacyScore: scoreResult.literacyScore,
+            comprehensionScore: scoreResult.comprehensionScore,
+            engagementScore: scoreResult.engagementScore,
+            literacyDomains: scoreResult.literacyDomains ?? null,
+            textProfile: scoreResult.textProfile ?? null,
+            xp: scoreResult.totalXp,
+            level: scoreResult.level,
+            scoreSeries: scoreResult.scoreSeries.map((s) => ({
+              label: s.label,
+              before: s.before,
+              after: s.after,
+            })),
+            badges: scoreResult.badges.map((b) => ({
+              id: b.id,
+              name: b.name,
+              emoji: b.emoji,
+              description: b.description,
+              acquiredAt: b.acquiredAt,
+            })),
+          });
+          console.log('[ReadingPage] Session finalization completed.');
+        } catch (err) {
+          console.error('[ReadingPage] Failed to finalize reading session:', err);
+        }
+      };
+      
+      finalize();
+    }
+  }, [progress, sessionId]);
 
   // 7/8: 실시간 REST /events 배치 폴링 & 개입 커맨드 처리 (WebSocket 제거)
   useEffect(() => {

@@ -269,6 +269,27 @@ export const api = {
     throw new Error(`Events server returned status ${res.status}`);
   },
 
+  /** 세션 완료 및 Redis 데이터 DB 플러시 */
+  finishSession: async (sessionId: string, scores: { literacy_score: number; comprehension_score: number; engagement_score: number }): Promise<any> => {
+    console.log('[API] finishSession Request:', { sessionId, scores });
+    const useMock = import.meta.env.VITE_USE_MOCK === 'true' || import.meta.env.VITE_USE_MOCK === true;
+    if (!useMock) {
+      try {
+        const res = await fetch(`${BASE_URL}/api/session/${sessionId}/finish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scores),
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.error('[API] Failed to finishSession on server:', err);
+      }
+    }
+    return { status: 'success' };
+  },
+
   /** 세션 결과 조회 — Literacy Score + Recharts 데이터 */
   getSessionResult: async (sessionId: string): Promise<SessionResultResponse> => {
     console.log('[API] getSessionResult Request:', sessionId);

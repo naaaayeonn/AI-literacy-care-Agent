@@ -84,10 +84,22 @@ export default function DashboardPage() {
   };
   const displayLevelProgress = dbData?.totalXp !== undefined ? calcLevelProgress(dbData.totalXp) : localLevelProgress;
 
-  // 퀴즈 정답률
-  const quizAccuracy = quizResults.length > 0
+  // 퀴즈 정답률 및 sub-label 세밀한 계산
+  const hasCurrentQuizzes = quizResults.length > 0;
+  const currentAccuracy = hasCurrentQuizzes
     ? Math.round((quizResults.filter((r) => r.correct).length / quizResults.length) * 100)
-    : displayComprehension; // 퀴즈 미진행 시 실시간/DB 값 표시
+    : 0;
+
+  // DB 평균 이해도가 유효하게 존재하면 그것을 우선 표시, 없으면 현재 세션 결과 표시 (둘 다 없으면 0)
+  const displayComprehensionValue = dbData?.averageComprehensionScore !== undefined && dbData.averageComprehensionScore > 0
+    ? dbData.averageComprehensionScore
+    : (hasCurrentQuizzes ? currentAccuracy : 0);
+
+  const comprehensionSubLabel = hasCurrentQuizzes
+    ? `${quizResults.length}문항 풀이`
+    : (dbData?.averageComprehensionScore !== undefined && dbData.averageComprehensionScore > 0
+        ? '이전 평균'
+        : '미응시');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -115,8 +127,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard icon={<Target size={20} />} label="리터러시 점수"   value={String(displayLiteracy)}    unit="점"  color="var(--color-primary)" />
         <SummaryCard icon={<Zap size={20} />}    label="평균 집중도"     value={String(displayEngagement)}  unit="%"   color="var(--color-engagement)" />
-        <SummaryCard icon={<CheckCircle2 size={20} />} label="퀴즈 정답률" value={String(quizAccuracy)}   unit="%"   color="var(--color-growth)"
-          sub={quizResults.length > 0 ? `${quizResults.length}문항 풀이` : '미응시'}
+        <SummaryCard icon={<CheckCircle2 size={20} />} label="퀴즈 정답률" value={String(displayComprehensionValue)}   unit="%"   color="var(--color-growth)"
+          sub={comprehensionSubLabel}
         />
         <SummaryCard icon={<Sparkles size={20} />} label="누적 경험치"   value={String(displayXp)}               unit="XP"  color="var(--color-xp)" />
       </div>
@@ -167,7 +179,7 @@ export default function DashboardPage() {
                 { label: '퀴즈 풀이 수',   value: `${dbData?.latestSessionSummary ? dbData.latestSessionSummary.quiz_count : quizResults.length}문항` },
                 { label: '이해도 점수',    value: `${dbData?.latestSessionSummary ? dbData.latestSessionSummary.comprehension_score : displayComprehension}점` },
                 { label: '진행 구간',      value: `${[25, 50, 75, 90, 100].filter((m) => (dbData?.latestSessionSummary ? dbData.latestSessionSummary.progress : progress) >= m).length}단계` },
-                { label: '퀴즈 정답률',    value: `${dbData?.latestSessionSummary ? dbData.latestSessionSummary.quiz_accuracy : quizAccuracy}%` },
+                { label: '퀴즈 정답률',    value: `${dbData?.latestSessionSummary ? dbData.latestSessionSummary.quiz_accuracy : currentAccuracy}%` },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-xs">
                   <span style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-sans)' }}>{label}</span>
