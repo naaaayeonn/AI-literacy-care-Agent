@@ -80,7 +80,12 @@ window.ALC_Session = (() => {
     }
 
     async function flush() {
+      // 7/15: flush 직렬화. 인터벌 flush와 blur/pause 즉시 flush가 겹쳐 동시 요청이 나가면,
+      // 백엔드가 매 요청을 events[-40:]로 재계산하므로 오래된 응답이 늦게 도착해 최신 집중도를
+      // 덮어써 값이 튀거나 특정 값(예: 44)에 갇히던 문제를 막는다. 한 번에 하나만 전송한다.
+      if (s.flushing) return;
       if (!s.id || s.queue.length === 0) return;
+      s.flushing = true;
       const events = s.queue.splice(0, s.queue.length);
       try {
         const res = await window.ALC_Fetch(`${cfg.API_BASE}/api/session/${s.id}/events`, {
@@ -97,6 +102,8 @@ window.ALC_Session = (() => {
         } else {
           console.warn("[ALC] 이벤트 전송 실패:", e);
         }
+      } finally {
+        s.flushing = false;
       }
     }
 

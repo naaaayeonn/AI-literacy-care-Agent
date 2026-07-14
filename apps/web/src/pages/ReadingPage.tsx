@@ -136,6 +136,11 @@ export default function ReadingPage() {
     let active = true;
     let flushIntervalId: any = null;
     let currentSessionId: string | null = null;
+    // 7/15: flush 직렬화 플래그. 예전엔 dwell/blur마다 즉시 flush가 겹쳐 수백 개 /events가
+    // 동시 전송되고, 백엔드는 매 요청을 events[-40:]로 재계산하므로 오래된(높은 focus) 응답이
+    // 늦게 도착해 최신 낮은 값을 덮어써 집중도가 튀거나(44 근처) 100에 머무는 버그가 있었다.
+    // 한 번에 하나만 전송해 응답 순서 역전을 없앤다.
+    let flushing = false;
 
     // 개입 명령 처리 핸들러 (Intervention Command → UI)
     const handleInterventionCommand = (command: any) => {
@@ -212,10 +217,13 @@ export default function ReadingPage() {
 
     // 큐에 있는 이벤트를 서버로 Flush 전송
     const flushQueue = async () => {
+      // 7/15: 이미 전송 중이면 스킵(직렬화). 동시 요청이 겹쳐 응답이 순서 역전되던 것 방지.
+      if (flushing) return;
       // 컴포넌트 마운트 해제 또는 세션 ID가 없을 경우 전송하지 않음
       const currentQueue = useReadingStore.getState().eventQueue;
       if (!active || !currentSessionId || currentQueue.length === 0) return;
 
+      flushing = true;
       // 큐 선점 비우기
       const eventsToSend = [...currentQueue];
       clearQueue();
@@ -229,6 +237,8 @@ export default function ReadingPage() {
         console.warn('[ReadingPage] Failed to send events, keeping in queue:', err);
         // 실패 시 큐에 다시 넣기 (순서 보장 위해 앞쪽에 넣는 것이 이상적이나, 간단히 다시 enqueue)
         eventsToSend.forEach(e => useReadingStore.getState().enqueueEvent(e));
+      } finally {
+        flushing = false;
       }
     };
 
@@ -325,14 +335,15 @@ export default function ReadingPage() {
 
     initSession();
 
-    // 큐 변경 실시간 감시 (blur·dwell·focus 이입 시 즉시 flush)
-    // 7/15: 'focus'(탭 복귀)도 즉시 flush 대상에 추가. 탭 이탈 중 보낸 blur의 감점 결과가
-    // 백그라운드에서 지연 처리되어 화면에 안 보이던 것을, 복귀 순간 재요청해 확실히 반영한다.
+    // 큐 변경 실시간 감시 (blur·focus 이입 시에만 즉시 flush)
+    // 7/15: 'dwell'을 즉시-flush 트리거에서 제거. dwell은 스크롤 중 IntersectionObserver로
+    // 초당 수차례 발생해 flush 폭주(수백 요청/초)를 일으켜 응답 순서 역전의 원인이었다.
+    // dwell 감점은 1.5초 인터벌 flush로 충분히 반영된다. blur/focus(탭 전환)만 즉시 처리.
     const unsubscribeQueue = useReadingStore.subscribe((state) => {
       const queue = state.eventQueue;
       if (queue.length > 0) {
         const lastEvent = queue[queue.length - 1];
-        if (lastEvent.type === 'blur' || lastEvent.type === 'dwell' || lastEvent.type === 'focus') {
+        if (lastEvent.type === 'blur' || lastEvent.type === 'focus') {
           flushQueue();
         }
       }
