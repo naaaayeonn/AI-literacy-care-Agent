@@ -554,6 +554,7 @@ def _query_stdict_api(word: str, context: str | None = None) -> dict | None:
     """
     import urllib.request
     import urllib.parse
+    import xml.etree.ElementTree as ET
 
     api_key = os.getenv("STDICT_API_KEY", "") or os.getenv("STANDARD_DICTIONARY_API_KEY", "")
     if not api_key:
@@ -563,7 +564,6 @@ def _query_stdict_api(word: str, context: str | None = None) -> dict | None:
         query_params = {
             "key": api_key,
             "q": word,
-            "req_type": "json",
             "start": 1,
             "num": 10
         }
@@ -573,26 +573,49 @@ def _query_stdict_api(word: str, context: str | None = None) -> dict | None:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
             res_content = response.read().decode("utf-8")
-            data = json.loads(res_content)
 
-        items = data.get("channel", {}).get("item", [])
-        if isinstance(items, dict):
-            items = [items]
-        if items:
-            best_item = items[0]
-            if context and len(items) > 1:
-                best_item = _disambiguate_homonyms_with_llm(word, items, context)
-
-            definition = _extract_definition_from_item(best_item)
-            # HTML 태그 제거
-            definition = re.sub(r"<[^>]*>", "", definition).strip()
-
-            if definition:
-                return {
-                    "term": best_item.get("word", word).replace("^", "").replace("_", ""),
-                    "definition": definition,
-                    "source": "표준국어대사전"
-                }
+        # XML 파싱 시도
+        try:
+            root = ET.fromstring(res_content)
+            items = root.findall(".//item")
+            if items:
+                best_item = items[0]
+                word_el = best_item.find("word")
+                word_val = word_el.text if word_el is not None else word
+                
+                defn_el = best_item.find(".//definition")
+                definition = defn_el.text if defn_el is not None else ""
+                
+                # HTML 태그 제거
+                definition = re.sub(r"<[^>]*>", "", definition).strip()
+                
+                if definition:
+                    return {
+                        "term": word_val.replace("^", "").replace("_", ""),
+                        "definition": definition,
+                        "source": "표준국어대사전"
+                    }
+        except Exception as xml_err:
+            # XML 파싱 실패 시 JSON 백업 시도
+            try:
+                data = json.loads(res_content)
+                items = data.get("channel", {}).get("item", [])
+                if isinstance(items, dict):
+                    items = [items]
+                if items:
+                    best_item = items[0]
+                    if context and len(items) > 1:
+                        best_item = _disambiguate_homonyms_with_llm(word, items, context)
+                    definition = _extract_definition_from_item(best_item)
+                    definition = re.sub(r"<[^>]*>", "", definition).strip()
+                    if definition:
+                        return {
+                            "term": best_item.get("word", word).replace("^", "").replace("_", ""),
+                            "definition": definition,
+                            "source": "표준국어대사전"
+                        }
+            except Exception:
+                raise xml_err
     except Exception as e:
         print(f"[rag_engine] 표준국어대사전 API 호출 실패: {e}")
         raise e
