@@ -61,14 +61,13 @@ def _personalized_scroll_threshold(baseline: Dict[str, Any] = None, difficulty_s
 
 
 def _skim_threshold(baseline: Dict[str, Any] = None, difficulty_score: float = None) -> float:
-    """스키밍(즉시 감점) 임계값(px/ms) = 개인의 난이도별 예상 읽기 속도 + 1.0.
+    """스키밍(즉시 감점) 임계값(px/ms) = 개인의 난이도별 예상 읽기 속도 + 0.4.
 
     7/15: 기존 _personalized_scroll_threshold는 개인값을 기본 1.5와 블렌딩해 임계값이
     너무 높아, 실제 빠른 스크롤도 임계값 아래로 판정되어 오히려 회복(+2)되던 문제를 고친다.
-    "튜토리얼에서 측정한 내 읽기 속도보다 1.0 px/ms 이상 빠르면 스키밍"으로 즉시 감점한다.
-    캘리브레이션이 없으면 보수적 기본값(1.5)만 쓴다.
+    "내 속도보다 0.4 px/ms 이상 빠르면 스키밍"으로 판정하여 예민하게 감점시킨다.
     """
-    FALLBACK = 1.5
+    FALLBACK = 0.7
     if not baseline:
         return FALLBACK
     v_easy = baseline.get("easy")
@@ -91,7 +90,8 @@ def _skim_threshold(baseline: Dict[str, Any] = None, difficulty_score: float = N
     else:
         expected = (v_easy + v_hard) / 2.0
     expected = max(0.1, expected)
-    return expected + 1.0  # 내 속도 + 1.0 px/ms 초과 = 스키밍(즉시 감점)
+    return expected + 0.4  # 내 속도 + 0.4 px/ms 초과 = 스키밍(즉시 감점)
+
 
 
 def calculate_focus_score(events: List[Dict[str, Any]], baseline: Dict[str, Any] = None, difficulty_score: float = None) -> float:
