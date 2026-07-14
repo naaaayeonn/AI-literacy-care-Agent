@@ -210,6 +210,17 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
+// 7/15: 앱 로드 즉시 백엔드 warmup 핑. Render 무료 티어는 유휴 시 잠들어 첫 요청이 ~1분 걸리는데,
+// 그동안 /events가 실패해 집중도가 100에 얼어붙는다. 온보딩(캘리브레이션) 동안 미리 깨워두면
+// 읽기 시작 시점엔 warm 상태가 되어 집중도가 바로 반영된다. (fire-and-forget, 실패 무시)
+if (typeof window !== 'undefined') {
+  try {
+    fetch(`${BASE_URL}/`, { method: 'GET', mode: 'no-cors', keepalive: true }).catch(() => {});
+  } catch (e) {
+    /* noop */
+  }
+}
+
 export const api = {
   /** 세션 시작 — 기사 로드 및 REST 엔드포인트 수신 */
   startSession: async (req: StartSessionRequest): Promise<StartSessionResponse> => {
