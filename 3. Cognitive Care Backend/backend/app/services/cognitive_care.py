@@ -90,7 +90,10 @@ def _skim_threshold(baseline: Dict[str, Any] = None, difficulty_score: float = N
     else:
         expected = (v_easy + v_hard) / 2.0
     expected = max(0.1, expected)
-    return expected + 0.4  # 내 속도 + 0.4 px/ms 초과 = 스키밍(즉시 감점)
+    # 7/15: 임계값 상한(cap). 온보딩에서 빠르게 스크롤하면 baseline이 커져 임계값이 5+까지
+    # 치솟아 실제 스키밍(예: 5 px/ms)도 감점이 안 걸리던 문제를 막는다. 2.5 px/ms(≈2500px/s)는
+    # 사람이 텍스트를 읽을 수 있는 속도를 넘으므로, 그 이상은 개인 baseline과 무관하게 스키밍으로 본다.
+    return min(expected + 0.4, 2.5)  # 내 속도 + 0.4 px/ms 초과 = 스키밍, 단 2.5 상한
 
 
 

@@ -325,12 +325,14 @@ export default function ReadingPage() {
 
     initSession();
 
-    // 큐 변경 실시간 감시 (blur 또는 dwell 이입 시 즉시 flush)
+    // 큐 변경 실시간 감시 (blur·dwell·focus 이입 시 즉시 flush)
+    // 7/15: 'focus'(탭 복귀)도 즉시 flush 대상에 추가. 탭 이탈 중 보낸 blur의 감점 결과가
+    // 백그라운드에서 지연 처리되어 화면에 안 보이던 것을, 복귀 순간 재요청해 확실히 반영한다.
     const unsubscribeQueue = useReadingStore.subscribe((state) => {
       const queue = state.eventQueue;
       if (queue.length > 0) {
         const lastEvent = queue[queue.length - 1];
-        if (lastEvent.type === 'blur' || lastEvent.type === 'dwell') {
+        if (lastEvent.type === 'blur' || lastEvent.type === 'dwell' || lastEvent.type === 'focus') {
           flushQueue();
         }
       }
