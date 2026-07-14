@@ -56,20 +56,30 @@ export default function DashboardPage() {
         const res = await api.getGrowthReport(userId);
         setDbData(res);
         
-        // 7/14: DB에서 불러온 주간 리터러시 스코어 시계열 및 개인 누적 실측 점수들을 스토어에 동기화하여 F5 리프레시 시 일관성 유지
+        // 7/15: DB 집계를 스토어에 반영하되, 세션 중 실시간으로 채운 실데이터를
+        // 백엔드의 빈값(null)/기본값으로 덮어쓰지 않도록 "병합"한다. (주간 비교가 실데이터를
+        // 잠깐 보여주다가 리포트 로드 시 기본값 화면으로 되돌아가던 문제 수정)
         if (res.weekly?.weeklyScoreSeries) {
-          const mapped = res.weekly.weeklyScoreSeries.map((s) => ({
-            label: s.label,
-            thisWeek: s.thisWeek ?? undefined,
-            lastWeek: s.lastWeek ?? undefined
-          }));
-          useScoreStore.setState({ 
+          const prevSeries = useScoreStore.getState().weeklyScoreSeries;
+          const prevByLabel = new Map(prevSeries.map((p) => [p.label, p]));
+          const mapped = res.weekly.weeklyScoreSeries.map((s) => {
+            const prev = prevByLabel.get(s.label);
+            return {
+              label: s.label,
+              // 백엔드 값이 있으면 우선, 없으면(null) 실시간으로 채운 기존 값 유지
+              thisWeek: s.thisWeek ?? prev?.thisWeek ?? undefined,
+              lastWeek: s.lastWeek ?? prev?.lastWeek ?? undefined,
+            };
+          });
+          const st = useScoreStore.getState();
+          useScoreStore.setState({
             weeklyScoreSeries: mapped,
-            literacyScore: res.averageLiteracyScore ?? 0,
-            comprehensionScore: res.averageComprehensionScore ?? 0,
-            engagementScore: res.averageFocusScore ?? 0,
-            xp: res.totalXp ?? 0,
-            level: res.level ?? 1
+            // 평균 점수: 백엔드 실측이 0/결측이면 기존 값을 유지(0으로 리셋 방지)
+            literacyScore: res.averageLiteracyScore || st.literacyScore,
+            comprehensionScore: res.averageComprehensionScore || st.comprehensionScore,
+            engagementScore: res.averageFocusScore || st.engagementScore,
+            xp: res.totalXp ?? st.xp,
+            level: res.level ?? st.level,
           });
         }
       } catch (err) {
