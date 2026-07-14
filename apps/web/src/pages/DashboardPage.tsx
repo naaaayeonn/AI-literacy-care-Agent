@@ -64,9 +64,9 @@ export default function DashboardPage() {
   }, [userId]);
 
   // DB 연동 값이 있으면 그것을 최우선으로 보여주고, 없거나 0이면 로컬/기본값 폴백
-  const displayLiteracy = dbData?.averageLiteracyScore || localLiteracy || 50;
-  const displayEngagement = dbData?.averageFocusScore || localEngagement || 50;
-  const displayComprehension = dbData?.averageComprehensionScore || localComprehension || 82;
+  const displayLiteracy = dbData?.averageLiteracyScore || localLiteracy || 0;
+  const displayEngagement = dbData?.averageFocusScore || localEngagement || 0;
+  const displayComprehension = dbData?.averageComprehensionScore || localComprehension || 0;
   const displayXp = dbData?.totalXp !== undefined ? dbData.totalXp : localXp;
   const displayLevel = dbData?.level !== undefined ? dbData.level : localLevel;
   
