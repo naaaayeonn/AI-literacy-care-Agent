@@ -52,15 +52,16 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     Dynamically generated from ReadingSessions and LLM.
     """
     redis_client = await get_redis()
-    cache_key = f"user:{user_id}:growth_report_cache"
-    try:
-        cached_raw = await redis_client.get(cache_key)
-        if cached_raw:
-            data = json.loads(cached_raw)
-            await redis_client.aclose()
-            return data
-    except Exception as cache_err:
-        print(f"Cache lookup failed: {cache_err}")
+    # 7/14: 개발 및 데모의 실시간 반영을 위해 캐시 비활성화
+    # cache_key = f"user:{user_id}:growth_report_cache"
+    # try:
+    #     cached_raw = await redis_client.get(cache_key)
+    #     if cached_raw:
+    #         data = json.loads(cached_raw)
+    #         await redis_client.aclose()
+    #         return data
+    # except Exception as cache_err:
+    #     print(f"Cache lookup failed: {cache_err}")
 
     sessions_result = await db.execute(select(ReadingSession).filter(ReadingSession.user_id == user_id))
     sessions = sessions_result.scalars().all()
@@ -441,10 +442,10 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     }
 
     # Cache the generated report in Redis for 24 hours to prevent slow page reloads
-    try:
-        await redis_client.set(cache_key, json.dumps(report), ex=86400)
-    except Exception as cache_err:
-        print(f"Failed to cache growth report: {cache_err}")
+    # try:
+    #     await redis_client.set(cache_key, json.dumps(report), ex=86400)
+    # except Exception as cache_err:
+    #     print(f"Failed to cache growth report: {cache_err}")
 
     await redis_client.aclose()
     return report
