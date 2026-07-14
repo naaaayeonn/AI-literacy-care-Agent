@@ -238,7 +238,8 @@ export const api = {
               difficulty: data.article && data.article.difficulty
                 ? parseFloat(data.article.difficulty) / 100
                 : 0.5,
-            },
+              chunks: (data.article && data.article.chunks) || [],
+            } as any,
             wsEndpoint: data.wsEndpoint || '',
           };
         }
