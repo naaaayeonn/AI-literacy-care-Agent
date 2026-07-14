@@ -70,9 +70,23 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     if not sessions:
         await redis_client.aclose()
         return generate_empty_growth_report()
+        
+    # 모든 세션의 퀴즈 정답 수 실시간 조회 (진행 중인 활성 세션의 점수 유실 방지)
+    quiz_correct_counts = {}
+    try:
+        q_results = (await db.execute(
+            select(QuizResult).filter(
+                QuizResult.session_id.in_([s.id for s in sessions]),
+                QuizResult.is_correct == True
+            )
+        )).scalars().all()
+        for qr in q_results:
+            quiz_correct_counts[qr.session_id] = quiz_correct_counts.get(qr.session_id, 0) + 1
+    except Exception as e:
+        print(f"Failed to query quiz results: {e}")
     
     # 1. 독해 시간 동적 산출 (활성 세션의 경우 Redis의 실시간 이벤트 간 시간 차이로 계산)
-    total_xp = sum((s.xp_earned or 0) for s in sessions)
+    total_xp = sum(quiz_correct_counts.get(s.id, 0) * 10 for s in sessions)
     total_duration = 0
     for s in sessions:
         if s.duration_seconds:
@@ -114,7 +128,7 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
                     pass
             
             weekly_activity[day_name]["time"] += (duration_sec or 0) // 60
-            weekly_activity[day_name]["xp"] += (s.xp_earned or 0)
+            weekly_activity[day_name]["xp"] += quiz_correct_counts.get(s.id, 0) * 10
             
     activity_data_weekly = [
         {"label": name, "time": data["time"], "xp": data["xp"]}
@@ -125,8 +139,30 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     sorted_sessions = sorted(sessions, key=lambda s: s.created_at if s.created_at else datetime.min.replace(tzinfo=timezone.utc))
     first_session = sorted_sessions[0]
     
-    # 실제 활동(퀴즈 풀이, 또는 리터러시 점수가 입력되었거나, finished_at이 명시됨)이 있었던 세션 필터링
-    active_sessions = [s for s in sorted_sessions if (s.literacy_score and s.literacy_score > 0) or s.xp_earned > 0 or s.finished_at]
+    # 실제 활동(퀴즈 풀이 결과가 존재하거나, DB 이벤트가 있거나, Redis 실시간 이벤트가 존재하거나, 점수가 있거나 완독됨)
+    session_ids_with_quizzes = set((await db.execute(select(QuizResult.session_id).distinct())).scalars().all())
+    session_ids_with_events = set((await db.execute(select(ReadingEvent.session_id).distinct())).scalars().all())
+    
+    latest_sess = sorted_sessions[-1]
+    has_redis_events = False
+    try:
+        has_redis_events = await redis_client.exists(f"session:{latest_sess.id}:events") > 0
+    except Exception:
+        pass
+        
+    active_sessions = []
+    for s in sorted_sessions:
+        is_active = (
+            (s.id == latest_sess.id and has_redis_events) or
+            (s.id in session_ids_with_quizzes) or
+            (s.id in session_ids_with_events) or
+            (s.literacy_score and s.literacy_score > 0) or
+            (s.xp_earned and s.xp_earned > 0) or
+            (s.finished_at is not None)
+        )
+        if is_active:
+            active_sessions.append(s)
+            
     if not active_sessions:
         active_sessions = sorted_sessions
     latest_active_session = active_sessions[-1]
