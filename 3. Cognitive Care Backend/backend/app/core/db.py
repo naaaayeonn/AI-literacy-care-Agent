@@ -16,45 +16,34 @@ except ImportError:
         print(f"[DB] Dynamic install of aiosqlite failed: {e}")
 
 # PostgreSQL URL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://admin:password@localhost:5432/literacy_care")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_async_engine(DATABASE_URL, echo=bool(os.getenv("SQL_ECHO")))
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-if DATABASE_URL.startswith("postgresql"):
+if DATABASE_URL:
+    # Production Mode (Render): Connect to PostgreSQL. Do not fall back to SQLite.
     engine = create_async_engine(
-        DATABASE_URL, 
+        DATABASE_URL,
         echo=False,
-        connect_args={"connect_timeout": 3} # psycopg 타임아웃 옵션은 connect_timeout 입니다.
+        connect_args={"connect_timeout": 15}
     )
+    AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    _db_verified = True
 else:
+    # Development Mode (Local): Default to SQLite
     engine = create_async_engine("sqlite+aiosqlite:///./literacy_care.db", echo=False)
+    AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    _db_verified = True
 
-AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
-_db_verified = False # DB 연결 확인 여부 플래그 선언
 
 async def get_db():
     global engine, AsyncSessionLocal, _db_verified
     
-    # 데이터베이스 연결 사전 확인 및 SQLite 폴백 전환 (컨텍스트 누수 방어)
-    if "postgresql" in str(engine.url) and not _db_verified:
-        try:
-            # 3초 타임아웃 연결 테스트 실행
-            async with engine.connect() as conn:
-                await conn.execute(text("SELECT 1"))
-            _db_verified = True
-            print("[DB] PostgreSQL connection verified.")
-        except Exception as e:
-            print(f"[DB] PostgreSQL connection failed ({e}). Switching to SQLite...")
-            engine = create_async_engine("sqlite+aiosqlite:///./literacy_care.db", echo=False)
-            # 즉각적으로 SQLite 테이블들 생성
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-            _db_verified = True
+    # SQLite의 경우 테이블들을 자동으로 즉각 생성하도록 보장
+    if not DATABASE_URL and _db_verified:
+        # 첫 호출 시에만 테이블 생성
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
             
-    # 검증된 안전한 세션 생성
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -62,5 +51,6 @@ async def get_db():
         except Exception:
             await session.rollback()
             raise
+
 
 
