@@ -45,6 +45,9 @@ class InMemoryRedisClient:
     async def keys(self, pattern: str = "*"):
         return [k for k in list(self.store.keys()) if fnmatch.fnmatch(k, pattern)]
 
+    async def exists(self, key: str) -> int:
+        return 1 if key in self.store else 0
+
     async def delete(self, key: str):
         if key in self.store:
             del self.store[key]
