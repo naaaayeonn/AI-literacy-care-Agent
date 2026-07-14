@@ -104,10 +104,10 @@ def calculate_focus_score(events: List[Dict[str, Any]], baseline: Dict[str, Any]
     if not events:
         return 100.0
 
-    # 7/15: "지금" 집중도를 반영하도록 최근 이벤트 창으로 산정(창 15).
-    # 40개는 스키밍이 창을 채우는 데 ~6초 걸려 "빠른 스크롤인데 한참 뒤에야 떨어지는" 지연을
-    # 유발했다. 15로 줄여 ~2초 안에 반영되게 한다. 오래된 감점은 창 밖으로 밀려나 자연 회복.
-    recent = events[-15:]
+    # 7/15: "지금" 집중도 = 100 − 최근 10개 이벤트의 감점 합. 창을 작게(10) 두어 빠른 스크롤이
+    # ~1.5초 안에 확 떨어지고, 정상 읽기(스크롤)를 이어가면 감점 이벤트가 창 밖으로 밀려 회복된다.
+    # (정상 스크롤 +2 회복은 감점을 상쇄해 100에 붙이고 감점 반영을 지연시켜 제거함.)
+    recent = events[-10:]
     score = 100.0
 
     # 7/15: 스키밍 임계값 = 개인 예상 읽기 속도 + 1.0 px/ms (블렌딩 폐기).
@@ -132,14 +132,10 @@ def calculate_focus_score(events: List[Dict[str, Any]], baseline: Dict[str, Any]
 
         elif etype == "scroll":
             velocity = _scroll_velocity(event)
-            # 임계값(개인 속도, 상한 2.5) 초과 = 스키밍 → 감점.
-            # 7/15: 정상 속도로 읽는 스크롤은 +2로 점진 회복시킨다. 임계값 상한(2.5)이 있어
-            #       빠른 스크롤은 회복 경로로 안 새고 확실히 감점되므로, 회복이 스키밍을 가리지
-            #       않는다. (회복이 아예 없으면 한 번 0으로 떨어진 뒤 다시 안 올라오던 문제 해결)
+            # 임계값(개인 속도, 상한 2.5) 초과 = 스키밍 → 감점. 정상 속도 스크롤은 감점 없음(0).
+            # 회복은 스키밍 이벤트가 최근 10개 창 밖으로 밀려나며 자연스럽게 이뤄진다.
             if velocity > scroll_threshold:
                 score -= 8.0
-            elif velocity > 0.05:
-                score = min(100.0, score + 2.0)
 
         elif etype == "pause":
             score -= 2.0
