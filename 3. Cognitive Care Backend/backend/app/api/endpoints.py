@@ -61,7 +61,7 @@ def _update_user_scroll_baseline(user, state_events: list, difficulty_score: flo
     except (TypeError, ValueError):
         nb["n_sessions"] = 1
     user.scroll_baseline = nb
-from ..services.quiz_service import select_quiz_for_state, generate_ox_quiz
+from ..services.quiz_service import select_quiz_for_state, generate_ox_quiz, normalize_quizzes
 
 router = APIRouter(prefix="/api/session", tags=["Sessions"])
 
@@ -259,7 +259,7 @@ async def process_events(session_id: str, req: EventsRequestModel):
             finish_quiz_shown_raw = await redis_client.get(f"session:{session_id}:finish_quiz_shown")
             
             if quizzes_raw and chunks_raw:
-                state["quizzes"] = json.loads(quizzes_raw)
+                state["quizzes"] = normalize_quizzes(quizzes_raw)
                 state["chunks"] = json.loads(chunks_raw)
                 state["asked_quiz_ids"] = json.loads(asked_raw) if asked_raw else []
                 
@@ -337,13 +337,8 @@ async def submit_quiz(session_id: str, req: QuizSubmitRequest, db: AsyncSession 
     if not quizzes_raw:
         raise HTTPException(status_code=404, detail="No quizzes found for session")
 
-    quizzes = json.loads(quizzes_raw)
-    if isinstance(quizzes, dict):
-        quiz_list = list(quizzes.values())
-    elif isinstance(quizzes, list):
-        quiz_list = quizzes
-    else:
-        quiz_list = []
+    quizzes = normalize_quizzes(quizzes_raw)
+    quiz_list = list(quizzes.values())
 
     target_quiz = next((q for q in quiz_list if q["quizId"] == req.quizId), None)
     if not target_quiz:
@@ -602,7 +597,7 @@ async def get_session_result(session_id: str, db: AsyncSession = Depends(get_db)
         quizzes_raw = await redis_client.get(f"session:{session_id}:quizzes")
         if quizzes_raw:
             try:
-                initial_state["quizzes"] = json.loads(quizzes_raw)
+                initial_state["quizzes"] = normalize_quizzes(quizzes_raw)
             except Exception:
                 pass
 

@@ -5,6 +5,26 @@ from ..agents.content_reducer.snowchat_client import is_snowchat_available, _cal
 
 logger = logging.getLogger(__name__)
 
+
+def normalize_quizzes(raw) -> dict:
+    """Redis에서 읽은 quizzes(JSON 문자열/dict/list)를 항상 {chunk_id: quiz} dict로 정규화한다.
+
+    일부 처리 흐름에서 quizzes가 list 형태로 저장되어, 소비 측에서 .values()/.get()을
+    호출할 때 AttributeError(500)가 나던 문제를 한 곳에서 방어한다. 소비 지점마다
+    개별 가드를 두는 대신, Redis에서 읽은 직후 이 함수로 정규화해서 쓴다.
+    """
+    data = json.loads(raw) if isinstance(raw, str) else raw
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list):
+        return {
+            (q.get("sourceChunkId") or q.get("chunkId") or q.get("source_chunk_id")): q
+            for q in data
+            if isinstance(q, dict)
+        }
+    return {}
+
+
 def generate_ox_quiz(summary: str, paragraph: str, chunk_id: str, session_id: str) -> dict:
     """
     문단 요약(summary)과 원문(paragraph)을 기반으로 O/X 퀴즈를 생성합니다 (결정론적 캐싱용).
@@ -100,17 +120,10 @@ def select_quiz_for_state(state: dict, ignore_asked: bool = False) -> list[dict]
     현재 사용자 상태(방금 읽던 position)를 바탕으로 미출제 퀴즈 최대 3개를 선택합니다.
     ignore_asked가 True이면 이미 출제된 퀴즈라도 다시 선택합니다 (100% 달성 시 사용).
     """
-    quizzes = state.get("quizzes", {})
+    quizzes = normalize_quizzes(state.get("quizzes", {}))
     if not quizzes:
         return []
 
-    # 리스트인 경우 딕셔너리로 변환하여 호환성 확보 (AttributeError 방지)
-    if isinstance(quizzes, list):
-        quizzes = {
-            (q.get("sourceChunkId") or q.get("chunkId") or q.get("source_chunk_id")): q
-            for q in quizzes if isinstance(q, dict)
-        }
-        
     asked_quiz_ids = state.get("asked_quiz_ids", [])
     events = state.get("reading_events", [])
     chunks = state.get("chunks", [])
