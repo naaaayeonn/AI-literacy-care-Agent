@@ -138,8 +138,13 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
     # M1: 5대 지표 실측 신호 기반 정직한 파생
     sorted_sessions = sorted(sessions, key=lambda s: s.created_at if s.created_at else datetime.min.replace(tzinfo=timezone.utc))
     
-    # 7/15: 완독(완료)된 세션들만 필터링하여 성장 지표 및 누적 평균 산출에 사용 (활성 세션의 None 값 희석 방지)
-    completed_sessions = [s for s in sorted_sessions if s.finished_at is not None]
+    # 7/15: 완독(완료)된 세션 + 실제 점수가 산출된 세션을 성장 집계에 사용.
+    # finished_at이 안 찍혔어도(완독 전 이탈·finalize 실패) literacy_score가 있으면
+    # 데이터가 사라지지 않도록 포함한다("분석할 데이터 없음" 오표시 방지).
+    completed_sessions = [
+        s for s in sorted_sessions
+        if s.finished_at is not None or (s.literacy_score or 0) > 0
+    ]
     
     # 첫 세션 (케어 전 baseline) 및 전체 세션 평균 (케어 적용 후) 산출
     if completed_sessions:
@@ -417,10 +422,16 @@ async def get_user_growth(user_id: str, db: AsyncSession = Depends(get_db)):
             마지막 단락은 "💡 성장 챌린지:" 로 시작하며 다음 주 목표를 제안해주세요.
             응답은 JSON 배열 형식의 문자열로 반환해주세요. 예: ["단락1", "단락2", "단락3"]
             """
-            llm_response = _call_llm_via_snowchat(
-                model="gemini-2.5-flash",
-                prompt=prompt,
-                system_instruction="당신은 AI 리터러시 코치입니다. 사용자를 격려하고 전문적인 분석을 제공하세요. JSON 배열로만 응답하세요."
+            # 7/15: 동기 LLM 호출이 이벤트 루프를 블로킹해 대시보드가 수십 초 멈추던 문제.
+            # 스레드로 격리하고 8초 하드 타임아웃을 건다(초과 시 아래 except → 폴백 처방 사용).
+            llm_response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _call_llm_via_snowchat,
+                    model="gemini-2.5-flash",
+                    prompt=prompt,
+                    system_instruction="당신은 AI 리터러시 코치입니다. 사용자를 격려하고 전문적인 분석을 제공하세요. JSON 배열로만 응답하세요.",
+                ),
+                timeout=8.0,
             )
             # 파싱 시도
             try:

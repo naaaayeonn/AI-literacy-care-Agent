@@ -8,6 +8,7 @@ import { create } from 'zustand';
 const UID_KEY = 'literacy_uid';
 const CONSENT_KEY = 'literacy_consent';
 const BASELINE_KEY = 'literacy_baseline';
+const UPLOAD_KEY = 'literacy_upload';
 
 function loadUserId(): string | null {
   try {
@@ -39,6 +40,22 @@ function loadConsent(): boolean {
   } catch {
     return false;
   }
+}
+
+/** 새로고침 후에도 "지금 읽던 업로드 문서"를 복원하기 위해 localStorage에서 로드 */
+function loadUpload(): { title: string | null; content: string[] | null; mode: 'care' | 'upload' } {
+  try {
+    const raw = localStorage.getItem(UPLOAD_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p.content) && p.content.length > 0) {
+        return { title: p.title ?? null, content: p.content, mode: 'upload' };
+      }
+    }
+  } catch {
+    /* noop */
+  }
+  return { title: null, content: null, mode: 'care' };
 }
 
 function genUserId(): string {
@@ -73,12 +90,14 @@ interface SessionConfigState {
   reset: () => void;
 }
 
+const _initUpload = loadUpload();
+
 export const useSessionConfig = create<SessionConfigState>((set, get) => ({
   userId: loadUserId(),
   consentGiven: loadConsent(),
-  mode: 'care',
-  uploadedTitle: null,
-  uploadedContent: null,
+  mode: _initUpload.mode,
+  uploadedTitle: _initUpload.title,
+  uploadedContent: _initUpload.content,
   baselineScrollSpeed: loadBaseline(),
   isCalibrated: loadBaseline() !== null,
 
@@ -102,9 +121,23 @@ export const useSessionConfig = create<SessionConfigState>((set, get) => ({
   },
 
   setMode: (mode) => set({ mode }),
-  setUpload: (uploadedTitle, uploadedContent) =>
-    set({ mode: 'upload', uploadedTitle, uploadedContent }),
-  clearUpload: () => set({ mode: 'care', uploadedTitle: null, uploadedContent: null }),
+  setUpload: (uploadedTitle, uploadedContent) => {
+    // 새로고침 후 복원용으로 업로드 문서를 localStorage에 저장한다.
+    try {
+      localStorage.setItem(UPLOAD_KEY, JSON.stringify({ title: uploadedTitle, content: uploadedContent }));
+    } catch {
+      /* noop */
+    }
+    set({ mode: 'upload', uploadedTitle, uploadedContent });
+  },
+  clearUpload: () => {
+    try {
+      localStorage.removeItem(UPLOAD_KEY);
+    } catch {
+      /* noop */
+    }
+    set({ mode: 'care', uploadedTitle: null, uploadedContent: null });
+  },
 
   setBaseline: (easy, hard) => {
     // 온보딩 쉬운/어려운 지문의 난이도(2번 척도). 지문이 고정이라 대표값으로 둔다.
@@ -128,6 +161,7 @@ export const useSessionConfig = create<SessionConfigState>((set, get) => ({
       localStorage.removeItem(UID_KEY);
       localStorage.removeItem(CONSENT_KEY);
       localStorage.removeItem(BASELINE_KEY);
+      localStorage.removeItem(UPLOAD_KEY);
     } catch {
       /* noop */
     }

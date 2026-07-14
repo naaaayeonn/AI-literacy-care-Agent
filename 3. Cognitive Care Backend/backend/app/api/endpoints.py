@@ -709,6 +709,14 @@ async def explain_term(
 @router.post("/reset")
 async def reset_demo_data(db: AsyncSession = Depends(get_db)):
     """전체 데이터베이스 및 Redis 세션 데이터를 완전 초기화하여 시연 리허설 반복 실행을 보장함 (7/13, 7/14)"""
+    import os
+    # 7/15: drop_all은 전 테이블(모든 사용자·세션·퀴즈)을 삭제하는 파괴적 작업이라,
+    # 실수 호출로 실데이터가 날아가지 않도록 명시적 환경변수 플래그로 가드한다.
+    if os.getenv("ALLOW_DESTRUCTIVE_RESET") != "1":
+        raise HTTPException(
+            status_code=403,
+            detail="Destructive reset is disabled. Set ALLOW_DESTRUCTIVE_RESET=1 to enable.",
+        )
     from ..core.db import engine
     from ..models.models import Base
     
