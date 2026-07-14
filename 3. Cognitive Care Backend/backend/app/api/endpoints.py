@@ -338,7 +338,14 @@ async def submit_quiz(session_id: str, req: QuizSubmitRequest, db: AsyncSession 
         raise HTTPException(status_code=404, detail="No quizzes found for session")
 
     quizzes = json.loads(quizzes_raw)
-    target_quiz = next((q for q in quizzes.values() if q["quizId"] == req.quizId), None)
+    if isinstance(quizzes, dict):
+        quiz_list = list(quizzes.values())
+    elif isinstance(quizzes, list):
+        quiz_list = quizzes
+    else:
+        quiz_list = []
+
+    target_quiz = next((q for q in quiz_list if q["quizId"] == req.quizId), None)
     if not target_quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
